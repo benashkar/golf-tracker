@@ -26,10 +26,13 @@ gunicorn==21.2.0
 # SQLAlchemy is our ORM (Object-Relational Mapper) for database operations
 SQLAlchemy==2.0.23
 
-# PyMySQL is the MySQL database driver
+# psycopg2-binary is the PostgreSQL database driver (for Render deployment)
+psycopg2-binary==2.9.9
+
+# PyMySQL is the MySQL database driver (for local development if needed)
 PyMySQL==1.1.0
 
-# Cryptography is required for secure MySQL connections
+# Cryptography is required for secure database connections
 cryptography==41.0.7
 
 # ------------------------------------------------------------------------------

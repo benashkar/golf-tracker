@@ -73,11 +73,19 @@ class Config:
     # Database Configuration
     # ==========================================================================
     # DATABASE_URL is the full connection string used by SQLAlchemy
-    # Format: mysql+pymysql://user:password@host:port/database
-    DATABASE_URL = os.getenv(
+    # Render provides Postgres, so we use postgresql:// format
+    # Format: postgresql://user:password@host:port/database
+    _raw_database_url = os.getenv(
         'DATABASE_URL',
-        'mysql+pymysql://golf_tracker:password@localhost:3306/golf_tracker'
+        'postgresql://golf_tracker:password@localhost:5432/golf_tracker'
     )
+
+    # Render uses 'postgres://' but SQLAlchemy needs 'postgresql://'
+    # This fixes the URL format automatically
+    if _raw_database_url.startswith('postgres://'):
+        DATABASE_URL = _raw_database_url.replace('postgres://', 'postgresql://', 1)
+    else:
+        DATABASE_URL = _raw_database_url
 
     # Individual database components (for when you need them separately)
     MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
