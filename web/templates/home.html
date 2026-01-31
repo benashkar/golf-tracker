@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
+        <p class="lead text-muted">Golf tournament data for local news research</p>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Recent Results -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-trophy me-2"></i>Recent Results
+            </div>
+            <div class="card-body">
+                {% if recent_results %}
+                <div class="list-group list-group-flush">
+                    {% for tournament in recent_results %}
+                    <a href="{{ url_for('tournaments.tournament_detail', tournament_id=tournament.tournament_id) }}"
+                       class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ tournament.tournament_name }}</h6>
+                            <small class="text-muted">{{ tournament.league_name }}</small>
+                        </div>
+                        <p class="mb-1 text-muted small">
+                            {{ tournament.date_range_display }} &bull;
+                            {{ tournament.city }}{% if tournament.state %}, {{ tournament.state }}{% endif %}
+                        </p>
+                        {% if tournament.winner %}
+                        <p class="mb-0">
+                            <i class="bi bi-trophy-fill text-warning me-1"></i>
+                            <strong>{{ tournament.winner.player_name }}</strong>
+                            <span class="text-muted">({{ tournament.winner.to_par_display }})</span>
+                            {% if tournament.winner.high_school_state %}
+                            <br>
+                            <small class="text-success">
+                                <i class="bi bi-mortarboard me-1"></i>
+                                {{ tournament.winner.high_school_state }}
+                            </small>
+                            {% endif %}
+                        </p>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No recent results available.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('tournaments.recent_results') }}" class="btn btn-sm btn-outline-primary">
+                    View All Recent Results <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Tournaments -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-calendar-event me-2"></i>Upcoming Tournaments
+            </div>
+            <div class="card-body">
+                {% if upcoming_tournaments %}
+                <div class="list-group list-group-flush">
+                    {% for tournament in upcoming_tournaments %}
+                    <a href="{{ url_for('tournaments.tournament_detail', tournament_id=tournament.tournament_id) }}"
+                       class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ tournament.tournament_name }}</h6>
+                            <span class="badge bg-secondary">{{ tournament.league_code }}</span>
+                        </div>
+                        <p class="mb-1 text-muted small">
+                            {{ tournament.date_range_display }}
+                        </p>
+                        <p class="mb-0 small">
+                            <i class="bi bi-geo-alt me-1"></i>
+                            {{ tournament.course_name }}
+                            {% if tournament.city %}&bull; {{ tournament.city }}{% endif %}
+                        </p>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No upcoming tournaments scheduled.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('tournaments.upcoming_tournaments') }}" class="btn btn-sm btn-outline-primary">
+                    View Full Schedule <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Search -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-search me-2"></i>Find Local Players
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Search for professional golfers by their local connections.</p>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <form action="{{ url_for('players.player_search') }}" method="GET">
+                            <label class="form-label">By High School State</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="hs_state"
+                                       placeholder="e.g., Texas">
+                                <button class="btn btn-primary" type="submit">Search</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <form action="{{ url_for('players.player_search') }}" method="GET">
+                            <label class="form-label">By High School</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="high_school"
+                                       placeholder="e.g., Highland Park">
+                                <button class="btn btn-primary" type="submit">Search</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <form action="{{ url_for('players.player_search') }}" method="GET">
+                            <label class="form-label">By College</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="college"
+                                       placeholder="e.g., University of Texas">
+                                <button class="btn btn-primary" type="submit">Search</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <a href="{{ url_for('players.player_search') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-sliders me-1"></i>Advanced Search
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

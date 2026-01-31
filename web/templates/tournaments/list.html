@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}Tournaments{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-trophy me-2"></i>Tournaments</h1>
+    <div>
+        <a href="{{ url_for('tournaments.tournament_calendar') }}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-calendar3 me-1"></i>Calendar View
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Year</label>
+                <select class="form-select" name="year">
+                    {% for y in range(current_year, current_year - 5, -1) %}
+                    <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">League</label>
+                <select class="form-select" name="league">
+                    <option value="">All Leagues</option>
+                    <option value="PGA" {% if selected_league == 'PGA' %}selected{% endif %}>PGA Tour</option>
+                    <option value="LPGA" {% if selected_league == 'LPGA' %}selected{% endif %}>LPGA Tour</option>
+                    <option value="DPWORLD" {% if selected_league == 'DPWORLD' %}selected{% endif %}>DP World Tour</option>
+                    <option value="LIV" {% if selected_league == 'LIV' %}selected{% endif %}>LIV Golf</option>
+                    <option value="CHAMPIONS" {% if selected_league == 'CHAMPIONS' %}selected{% endif %}>Champions Tour</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                    <option value="">All</option>
+                    <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>Completed</option>
+                    <option value="in_progress" {% if selected_status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                    <option value="scheduled" {% if selected_status == 'scheduled' %}selected{% endif %}>Upcoming</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filter</button>
+                <a href="{{ url_for('tournaments.tournament_list') }}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-warning">{{ error }}</div>
+{% endif %}
+
+<!-- Tournament List -->
+{% if tournaments %}
+<div class="card">
+    <div class="card-header">
+        Showing {{ tournaments|length }} of {{ total }} tournaments
+    </div>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Tournament</th>
+                    <th>League</th>
+                    <th>Dates</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in tournaments %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('tournaments.tournament_detail', tournament_id=t.tournament_id) }}">
+                            <strong>{{ t.tournament_name }}</strong>
+                        </a>
+                        {% if t.course_name %}
+                        <br><small class="text-muted">{{ t.course_name }}</small>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-secondary">{{ t.league_code }}</span></td>
+                    <td>{{ t.date_range_display }}</td>
+                    <td>
+                        {% if t.city %}
+                        {{ t.city }}{% if t.state %}, {{ t.state }}{% endif %}
+                        {% else %}
+                        <span class="text-muted">TBD</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if t.status == 'completed' %}
+                        <span class="badge bg-success">Completed</span>
+                        {% elif t.status == 'in_progress' %}
+                        <span class="badge bg-warning text-dark">In Progress</span>
+                        {% else %}
+                        <span class="badge bg-info">Upcoming</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('tournaments.tournament_detail', tournament_id=t.tournament_id) }}"
+                           class="btn btn-sm btn-outline-primary">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if total_pages > 1 %}
+    <div class="card-footer">
+        <nav>
+            <ul class="pagination mb-0 justify-content-center">
+                {% if page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page - 1 }}&year={{ selected_year }}{% if selected_league %}&league={{ selected_league }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">Previous</a>
+                </li>
+                {% endif %}
+
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == page %}
+                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                    {% elif p <= 3 or p > total_pages - 3 or (p >= page - 2 and p <= page + 2) %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ p }}&year={{ selected_year }}{% if selected_league %}&league={{ selected_league }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">{{ p }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page < total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page + 1 }}&year={{ selected_year }}{% if selected_league %}&league={{ selected_league }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="alert alert-info">No tournaments found.</div>
+{% endif %}
+{% endblock %}

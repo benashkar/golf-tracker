@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ player.full_name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('home.index') }}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('players.player_list') }}">Players</a></li>
+        <li class="breadcrumb-item active">{{ player.full_name }}</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <!-- Player Info Column -->
+    <div class="col-lg-4 mb-4">
+        <!-- Player Card -->
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                {% if player.profile_image_url %}
+                <img src="{{ player.profile_image_url }}" alt="{{ player.full_name }}"
+                     class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+                {% else %}
+                <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center mb-3"
+                     style="width: 150px; height: 150px;">
+                    <i class="bi bi-person-fill text-white" style="font-size: 4rem;"></i>
+                </div>
+                {% endif %}
+
+                <h2 class="mb-1">{{ player.full_name }}</h2>
+
+                {% if player.leagues %}
+                <div class="mb-3">
+                    {% for league in player.leagues %}
+                    <span class="badge bg-success">{{ league.league_name }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- HIGH SCHOOL INFO (KEY FOR LOCAL NEWS) -->
+        {% if player.high_school_name %}
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-mortarboard me-2"></i>High School
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">{{ player.high_school_name }}</h5>
+                {% if player.high_school_city or player.high_school_state %}
+                <p class="card-text">
+                    <i class="bi bi-geo-alt me-1"></i>
+                    {{ player.high_school_city }}{% if player.high_school_city and player.high_school_state %}, {% endif %}{{ player.high_school_state }}
+                </p>
+                {% endif %}
+                {% if player.high_school_graduation_year %}
+                <p class="card-text">
+                    <i class="bi bi-calendar me-1"></i>
+                    Class of {{ player.high_school_graduation_year }}
+                </p>
+                {% endif %}
+
+                <a href="{{ url_for('players.players_by_school', school_name=player.high_school_name) }}"
+                   class="btn btn-sm btn-outline-success">
+                    See All Players from this School
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- College Info -->
+        {% if player.college_name %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-building me-2"></i>College
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">{{ player.college_name }}</h5>
+                {% if player.college_graduation_year %}
+                <p class="card-text text-muted">Class of {{ player.college_graduation_year }}</p>
+                {% endif %}
+
+                <a href="{{ url_for('players.players_by_college', college_name=player.college_name) }}"
+                   class="btn btn-sm btn-outline-primary">
+                    See All Players from this College
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Hometown Info -->
+        {% if player.hometown_city or player.hometown_state %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-house me-2"></i>Hometown
+            </div>
+            <div class="card-body">
+                <p class="card-text mb-1">
+                    {{ player.hometown_city }}{% if player.hometown_city and player.hometown_state %}, {% endif %}{{ player.hometown_state }}
+                </p>
+                {% if player.hometown_country %}
+                <p class="card-text text-muted">{{ player.hometown_country }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- External Links -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-link-45deg me-2"></i>Links
+            </div>
+            <div class="card-body">
+                {% if player.pga_tour_id %}
+                <a href="https://www.pgatour.com/players/player.{{ player.pga_tour_id }}"
+                   class="btn btn-sm btn-outline-secondary mb-2 w-100" target="_blank">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>PGA Tour Profile
+                </a>
+                {% endif %}
+                {% if player.wikipedia_url %}
+                <a href="{{ player.wikipedia_url }}"
+                   class="btn btn-sm btn-outline-secondary mb-2 w-100" target="_blank">
+                    <i class="bi bi-wikipedia me-1"></i>Wikipedia
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Column -->
+    <div class="col-lg-8">
+        <!-- NEWS SNIPPET (KEY FOR LOCAL NEWS) -->
+        {% if news_intro %}
+        <div class="card mb-4">
+            <div class="card-header bg-warning">
+                <i class="bi bi-newspaper me-2"></i>News Snippet
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-2">Copy this intro for your news story:</p>
+                <div class="news-snippet" id="news-intro">
+                    {{ news_intro }}
+                </div>
+                <button class="btn btn-sm btn-outline-secondary mt-3 copy-btn"
+                        onclick="copyToClipboard('{{ news_intro | e }}', this)">
+                    <i class="bi bi-clipboard me-1"></i>Copy to Clipboard
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Stats Summary -->
+        {% if stats %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-graph-up me-2"></i>Stats
+                {% if selected_year %}<small class="text-muted">({{ selected_year }})</small>{% endif %}
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-3">
+                        <h3 class="mb-0">{{ stats.tournaments_played }}</h3>
+                        <small class="text-muted">Events</small>
+                    </div>
+                    <div class="col-3">
+                        <h3 class="mb-0">{{ stats.wins }}</h3>
+                        <small class="text-muted">Wins</small>
+                    </div>
+                    <div class="col-3">
+                        <h3 class="mb-0">{{ stats.top_10 }}</h3>
+                        <small class="text-muted">Top 10s</small>
+                    </div>
+                    <div class="col-3">
+                        <h3 class="mb-0">${{ '{:,.0f}'.format(stats.total_earnings) }}</h3>
+                        <small class="text-muted">Earnings</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tournament History -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history me-2"></i>Tournament History</span>
+
+                <!-- Year Filter -->
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown">
+                        {% if selected_year %}{{ selected_year }}{% else %}All Years{% endif %}
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('players.player_detail', player_id=player.player_id) }}">All Years</a></li>
+                        {% for year in range(current_year, current_year - 5, -1) %}
+                        <li><a class="dropdown-item" href="{{ url_for('players.player_detail', player_id=player.player_id, year=year) }}">{{ year }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if tournament_history %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Tournament</th>
+                                <th>Pos</th>
+                                <th>Score</th>
+                                <th>R1</th>
+                                <th>R2</th>
+                                <th>R3</th>
+                                <th>R4</th>
+                                <th>Earnings</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in tournament_history %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('tournaments.tournament_detail', tournament_id=result.tournament_id) }}">
+                                        {{ result.tournament_name }}
+                                    </a>
+                                    <br>
+                                    <small class="text-muted">{{ result.start_date }}</small>
+                                </td>
+                                <td>
+                                    {% if result.final_position == 1 %}
+                                    <span class="badge badge-position-1">{{ result.final_position_display }}</span>
+                                    {% elif result.final_position == 2 %}
+                                    <span class="badge badge-position-2">{{ result.final_position_display }}</span>
+                                    {% elif result.final_position == 3 %}
+                                    <span class="badge badge-position-3">{{ result.final_position_display }}</span>
+                                    {% else %}
+                                    {{ result.final_position_display or '-' }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ result.to_par_display }}</td>
+                                <td>{{ result.round_1_score or '-' }}</td>
+                                <td>{{ result.round_2_score or '-' }}</td>
+                                <td>{{ result.round_3_score or '-' }}</td>
+                                <td>{{ result.round_4_score or '-' }}</td>
+                                <td>
+                                    {% if result.earnings %}
+                                    ${{ '{:,.0f}'.format(result.earnings) }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No tournament history available{% if selected_year %} for {{ selected_year }}{% endif %}.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

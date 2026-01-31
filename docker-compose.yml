@@ -1,0 +1,62 @@
+# ==============================================================================
+# Golf Tracker - Docker Compose Configuration
+# ==============================================================================
+# For local development with MySQL database.
+#
+# Usage:
+#   docker-compose up -d        # Start all services
+#   docker-compose logs -f      # View logs
+#   docker-compose down         # Stop all services
+#   docker-compose down -v      # Stop and remove volumes
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  # Flask Web Application
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=mysql+pymysql://golf:golf@db:3306/golf_tracker
+      - SECRET_KEY=dev-secret-key-for-local-development
+      - LOG_LEVEL=DEBUG
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    command: flask run --host=0.0.0.0 --port=5000 --reload
+
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=golf_tracker
+      - MYSQL_USER=golf
+      - MYSQL_PASSWORD=golf
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Adminer (Database UI - optional)
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  mysql_data:

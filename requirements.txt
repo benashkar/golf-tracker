@@ -1,0 +1,108 @@
+# ==============================================================================
+# Golf Tracker - Python Dependencies
+# ==============================================================================
+# This file lists all Python packages required to run the golf-tracker project.
+# Install with: pip install -r requirements.txt
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Web Framework
+# ------------------------------------------------------------------------------
+# Flask is our web framework - it handles HTTP requests and responses
+Flask==3.0.0
+
+# Flask-SQLAlchemy integrates SQLAlchemy ORM with Flask
+Flask-SQLAlchemy==3.1.1
+
+# Jinja2 is the templating engine used by Flask
+Jinja2==3.1.2
+
+# Gunicorn is the production WSGI server
+gunicorn==21.2.0
+
+# ------------------------------------------------------------------------------
+# Database
+# ------------------------------------------------------------------------------
+# SQLAlchemy is our ORM (Object-Relational Mapper) for database operations
+SQLAlchemy==2.0.23
+
+# PyMySQL is the MySQL database driver
+PyMySQL==1.1.0
+
+# Cryptography is required for secure MySQL connections
+cryptography==41.0.7
+
+# ------------------------------------------------------------------------------
+# Scraping
+# ------------------------------------------------------------------------------
+# Requests makes HTTP requests easy
+requests==2.31.0
+
+# BeautifulSoup4 parses HTML and makes it easy to extract data
+beautifulsoup4==4.12.2
+
+# lxml is a fast HTML/XML parser used by BeautifulSoup
+lxml==4.9.3
+
+# Selenium automates browsers for JS-heavy pages
+selenium==4.15.2
+
+# webdriver-manager automatically downloads and manages browser drivers
+webdriver-manager==4.0.1
+
+# ------------------------------------------------------------------------------
+# Data Processing
+# ------------------------------------------------------------------------------
+# Pandas for data manipulation (useful for processing scraped data)
+pandas==2.1.3
+
+# python-dateutil for parsing dates in various formats
+python-dateutil==2.8.2
+
+# ------------------------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------------------------
+# python-dotenv loads environment variables from .env files
+python-dotenv==1.0.0
+
+# pyyaml for reading YAML configuration files
+pyyaml==6.0.1
+
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
+# Loguru makes logging easy and beautiful
+loguru==0.7.2
+
+# ------------------------------------------------------------------------------
+# Testing
+# ------------------------------------------------------------------------------
+# pytest is our testing framework
+pytest==7.4.3
+
+# pytest-cov measures code coverage
+pytest-cov==4.1.0
+
+# pytest-mock provides mocking utilities
+pytest-mock==3.12.0
+
+# responses mocks HTTP requests for testing scrapers
+responses==0.24.1
+
+# ------------------------------------------------------------------------------
+# CLI (Command Line Interface)
+# ------------------------------------------------------------------------------
+# Click makes it easy to create command-line tools
+click==8.1.7
+
+# ------------------------------------------------------------------------------
+# Notifications (Optional)
+# ------------------------------------------------------------------------------
+# Slack SDK for sending notifications to Slack
+slack-sdk==3.23.0
+
+# ------------------------------------------------------------------------------
+# Utilities
+# ------------------------------------------------------------------------------
+# Tenacity provides retry logic with exponential backoff
+tenacity==8.2.3

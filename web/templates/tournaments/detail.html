@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ tournament.tournament_name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('home.index') }}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('tournaments.tournament_list') }}">Tournaments</a></li>
+        <li class="breadcrumb-item active">{{ tournament.tournament_name }}</li>
+    </ol>
+</nav>
+
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <h1>{{ tournament.tournament_name }}</h1>
+        <p class="lead text-muted">
+            {{ tournament.league_name }} &bull; {{ tournament.tournament_year }}
+        </p>
+    </div>
+    <div class="col-lg-4 text-lg-end">
+        <a href="{{ url_for('tournaments.tournament_local_news', tournament_id=tournament.tournament_id) }}"
+           class="btn btn-warning">
+            <i class="bi bi-newspaper me-1"></i>Local News Package
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Tournament Info -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>Tournament Info
+            </div>
+            <div class="card-body">
+                <dl class="mb-0">
+                    <dt>Dates</dt>
+                    <dd>{{ tournament.date_range_display }}</dd>
+
+                    {% if tournament.course_name %}
+                    <dt>Course</dt>
+                    <dd>{{ tournament.course_name }}</dd>
+                    {% endif %}
+
+                    {% if tournament.city %}
+                    <dt>Location</dt>
+                    <dd>
+                        {{ tournament.city }}{% if tournament.state %}, {{ tournament.state }}{% endif %}
+                        {% if tournament.country %}<br>{{ tournament.country }}{% endif %}
+                    </dd>
+                    {% endif %}
+
+                    {% if tournament.purse_amount %}
+                    <dt>Purse</dt>
+                    <dd>${{ '{:,.0f}'.format(tournament.purse_amount) }}</dd>
+                    {% endif %}
+
+                    {% if tournament.par %}
+                    <dt>Par</dt>
+                    <dd>{{ tournament.par }}</dd>
+                    {% endif %}
+
+                    <dt>Status</dt>
+                    <dd>
+                        {% if tournament.status == 'completed' %}
+                        <span class="badge bg-success">Completed</span>
+                        {% elif tournament.status == 'in_progress' %}
+                        <span class="badge bg-warning text-dark">In Progress</span>
+                        {% else %}
+                        <span class="badge bg-info">Upcoming</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <!-- State Filter -->
+        {% if available_states %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="bi bi-funnel me-2"></i>Filter by State
+            </div>
+            <div class="card-body">
+                <p class="small text-muted">Show players from a specific state (for local news):</p>
+                <select class="form-select" onchange="window.location.href='?state=' + this.value">
+                    <option value="">All States</option>
+                    {% for state in available_states %}
+                    <option value="{{ state }}" {% if state_filter == state %}selected{% endif %}>{{ state }}</option>
+                    {% endfor %}
+                </select>
+                {% if state_filter %}
+                <a href="{{ url_for('tournaments.tournament_detail', tournament_id=tournament.tournament_id) }}"
+                   class="btn btn-sm btn-outline-secondary mt-2">Clear Filter</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Leaderboard -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="bi bi-list-ol me-2"></i>Leaderboard
+                    {% if state_filter %}
+                    <span class="badge bg-info ms-2">{{ state_filter }}</span>
+                    {% endif %}
+                </span>
+                <span class="text-muted">{{ leaderboard|length }} players</span>
+            </div>
+
+            {% if leaderboard %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover leaderboard-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Pos</th>
+                            <th>Player</th>
+                            <th>High School</th>
+                            <th>Score</th>
+                            <th>R1</th>
+                            <th>R2</th>
+                            <th>R3</th>
+                            <th>R4</th>
+                            <th>Earnings</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in leaderboard %}
+                        <tr>
+                            <td>
+                                {% if entry.final_position == 1 %}
+                                <span class="badge badge-position-1">{{ entry.final_position_display }}</span>
+                                {% elif entry.final_position == 2 %}
+                                <span class="badge badge-position-2">{{ entry.final_position_display }}</span>
+                                {% elif entry.final_position == 3 %}
+                                <span class="badge badge-position-3">{{ entry.final_position_display }}</span>
+                                {% else %}
+                                {{ entry.final_position_display or '-' }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('players.player_detail', player_id=entry.player_id) }}">
+                                    <strong>{{ entry.player_name }}</strong>
+                                </a>
+                            </td>
+                            <td>
+                                {% if entry.player_bio and entry.player_bio.high_school_name %}
+                                <small>
+                                    {{ entry.player_bio.high_school_name }}
+                                    {% if entry.player_bio.high_school_state %}
+                                    <br><span class="text-success">{{ entry.player_bio.high_school_state }}</span>
+                                    {% endif %}
+                                </small>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td><strong>{{ entry.to_par_display }}</strong></td>
+                            <td>{{ entry.round_1_score or '-' }}</td>
+                            <td>{{ entry.round_2_score or '-' }}</td>
+                            <td>{{ entry.round_3_score or '-' }}</td>
+                            <td>{{ entry.round_4_score or '-' }}</td>
+                            <td>
+                                {% if entry.earnings %}
+                                ${{ '{:,.0f}'.format(entry.earnings) }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="card-body">
+                <p class="text-muted mb-0">
+                    {% if state_filter %}
+                    No players from {{ state_filter }} in this tournament.
+                    {% else %}
+                    No results available for this tournament yet.
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

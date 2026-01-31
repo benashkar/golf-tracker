@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}Players{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-people me-2"></i>Players</h1>
+    <a href="{{ url_for('players.player_search') }}" class="btn btn-primary">
+        <i class="bi bi-search me-1"></i>Advanced Search
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" class="form-control" name="q"
+                       value="{{ search_query or '' }}" placeholder="Player name...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">League</label>
+                <select class="form-select" name="league">
+                    <option value="">All Leagues</option>
+                    <option value="PGA" {% if league == 'PGA' %}selected{% endif %}>PGA Tour</option>
+                    <option value="LPGA" {% if league == 'LPGA' %}selected{% endif %}>LPGA Tour</option>
+                    <option value="DPWORLD" {% if league == 'DPWORLD' %}selected{% endif %}>DP World Tour</option>
+                    <option value="LIV" {% if league == 'LIV' %}selected{% endif %}>LIV Golf</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Per Page</label>
+                <select class="form-select" name="per_page">
+                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filter</button>
+                <a href="{{ url_for('players.player_list') }}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-warning">{{ error }}</div>
+{% endif %}
+
+<!-- Player List -->
+{% if players %}
+<div class="card">
+    <div class="card-header">
+        Showing {{ players|length }} of {{ total }} players (Page {{ page }} of {{ total_pages }})
+    </div>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>High School</th>
+                    <th>Graduation</th>
+                    <th>College</th>
+                    <th>Hometown</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in players %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('players.player_detail', player_id=player.player_id) }}">
+                            <strong>{{ player.full_name }}</strong>
+                        </a>
+                    </td>
+                    <td>
+                        {% if player.high_school_name %}
+                        {{ player.high_school_name }}
+                        {% if player.high_school_state %}
+                        <br><small class="text-muted">{{ player.high_school_city }}, {{ player.high_school_state }}</small>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ player.high_school_graduation_year or '-' }}</td>
+                    <td>{{ player.college_name or '-' }}</td>
+                    <td>
+                        {% if player.hometown_city %}
+                        {{ player.hometown_city }}{% if player.hometown_state %}, {{ player.hometown_state }}{% endif %}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('players.player_detail', player_id=player.player_id) }}"
+                           class="btn btn-sm btn-outline-primary">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="card-footer">
+        <nav>
+            <ul class="pagination mb-0 justify-content-center">
+                {% if page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page - 1 }}&per_page={{ per_page }}{% if league %}&league={{ league }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                        Previous
+                    </a>
+                </li>
+                {% endif %}
+
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == page %}
+                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                    {% elif p <= 3 or p > total_pages - 3 or (p >= page - 2 and p <= page + 2) %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}{% if league %}&league={{ league }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">{{ p }}</a>
+                    </li>
+                    {% elif p == 4 or p == total_pages - 3 %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page < total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page + 1 }}&per_page={{ per_page }}{% if league %}&league={{ league }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                        Next
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle me-2"></i>No players found.
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,134 @@
+# ==============================================================================
+# Golf Tracker - Git Ignore File
+# ==============================================================================
+# This file tells Git which files and directories to ignore.
+# These are typically generated files, sensitive data, or system files.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Python Virtual Environment
+# ------------------------------------------------------------------------------
+# These directories contain installed Python packages - don't commit them
+venv/
+.venv/
+env/
+ENV/
+
+# ------------------------------------------------------------------------------
+# Environment Variables
+# ------------------------------------------------------------------------------
+# CRITICAL: Never commit .env files - they contain passwords and secrets!
+.env
+.env.local
+.env.*.local
+
+# ------------------------------------------------------------------------------
+# Python Compiled Files
+# ------------------------------------------------------------------------------
+# These are automatically generated when Python runs your code
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ------------------------------------------------------------------------------
+# IDE and Editor Files
+# ------------------------------------------------------------------------------
+# These are settings files created by code editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# ------------------------------------------------------------------------------
+# Log Files
+# ------------------------------------------------------------------------------
+# Log files can get very large - don't commit them
+logs/*.log
+*.log
+log/
+
+# ------------------------------------------------------------------------------
+# Database Files
+# ------------------------------------------------------------------------------
+# SQLite databases (used for local testing)
+*.db
+*.sqlite3
+
+# ------------------------------------------------------------------------------
+# Testing
+# ------------------------------------------------------------------------------
+# Test coverage reports
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# ------------------------------------------------------------------------------
+# Operating System Files
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ------------------------------------------------------------------------------
+# Jupyter Notebooks
+# ------------------------------------------------------------------------------
+.ipynb_checkpoints/
+
+# ------------------------------------------------------------------------------
+# Temporary Files
+# ------------------------------------------------------------------------------
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# ------------------------------------------------------------------------------
+# Selenium/WebDriver
+# ------------------------------------------------------------------------------
+# Downloaded browser drivers
+chromedriver
+geckodriver
+msedgedriver
+
+# ------------------------------------------------------------------------------
+# Scraped Data Cache (if used)
+# ------------------------------------------------------------------------------
+cache/
+.cache/
