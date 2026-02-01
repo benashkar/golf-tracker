@@ -24,7 +24,8 @@ gunicorn==21.2.0
 # Database
 # ------------------------------------------------------------------------------
 # SQLAlchemy is our ORM (Object-Relational Mapper) for database operations
-SQLAlchemy==2.0.23
+# Using 2.0.36+ for Python 3.13 compatibility
+SQLAlchemy>=2.0.36
 
 # psycopg2-binary is the PostgreSQL database driver (for Render deployment)
 psycopg2-binary==2.9.9
