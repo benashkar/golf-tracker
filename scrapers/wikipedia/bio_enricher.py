@@ -83,16 +83,27 @@ class WikipediaBioEnricher(BaseScraper):
         # Patterns for extracting information
         # These regex patterns help find structured data
         self.high_school_patterns = [
-            r'(\w+(?:\s+\w+)*)\s+High\s+School',
+            r'attended\s+([A-Z][^,\n]+?)\s+High\s+School',
+            r'graduated\s+from\s+([A-Z][^,\n]+?)\s+High\s+School',
+            r'([A-Z][A-Za-z\s]+)\s+High\s+School\s+in\s+([A-Z][A-Za-z]+(?:,\s*[A-Z][A-Za-z]+)?)',
+            r'([A-Z][A-Za-z\'\s]+)\s+High\s+School',
             r'high school[:\s]+([^,\n]+)',
-            r'attended\s+([^,\n]+\s+High\s+School)',
         ]
+
+        # Pattern to extract city/state after high school name
+        self.high_school_location_pattern = r'High\s+School\s+in\s+([A-Z][A-Za-z\s]+),?\s*([A-Z][A-Za-z\s]+)?'
 
         self.college_patterns = [
             r'University\s+of\s+(\w+(?:\s+\w+)*)',
             r'(\w+(?:\s+\w+)*)\s+University',
             r'(\w+(?:\s+\w+)*)\s+College',
             r'college[:\s]+([^,\n]+)',
+        ]
+
+        # Pattern to find hometown from "from City, State" or "born in City, State"
+        self.hometown_patterns = [
+            r'(?:from|hails from|raised in|grew up in)\s+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)',
+            r'born\s+(?:and raised\s+)?in\s+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)',
         ]
 
         self.logger = logger.bind(
@@ -343,7 +354,8 @@ class WikipediaBioEnricher(BaseScraper):
         We extract data from:
         1. The infobox (most reliable)
         2. The first paragraph (for additional context)
-        3. Links and categories (for school/college info)
+        3. Early life/Background sections (for high school)
+        4. Links and categories (for school/college info)
         """
         bio_data = {}
 
@@ -358,7 +370,86 @@ class WikipediaBioEnricher(BaseScraper):
             para_text = first_para.get_text()
             bio_data.update(self._parse_paragraph(para_text))
 
+        # Look in Early life/Background sections for high school info
+        if 'high_school_name' not in bio_data:
+            early_life_data = self._parse_early_life_section(soup)
+            bio_data.update(early_life_data)
+
+        # Try to extract hometown from paragraph if not found in infobox
+        if 'hometown_city' not in bio_data:
+            hometown_data = self._extract_hometown_from_text(soup)
+            bio_data.update(hometown_data)
+
         return bio_data
+
+    def _parse_early_life_section(self, soup: BeautifulSoup) -> Dict[str, Any]:
+        """
+        Parse Early life or Background section for high school information.
+
+        Args:
+            soup: BeautifulSoup object of the Wikipedia page
+
+        Returns:
+            Dictionary with extracted data
+        """
+        data = {}
+
+        # Look for section headings that might contain early life info
+        section_names = ['Early life', 'Background', 'Early life and education',
+                        'Personal life', 'Biography', 'Early years']
+
+        for heading in soup.find_all(['h2', 'h3']):
+            heading_text = heading.get_text(strip=True)
+
+            for section_name in section_names:
+                if section_name.lower() in heading_text.lower():
+                    # Get all paragraphs until next heading
+                    section_text = self._get_section_text(heading)
+                    if section_text:
+                        data.update(self._parse_paragraph(section_text))
+                        if 'high_school_name' in data:
+                            return data
+
+        return data
+
+    def _get_section_text(self, heading) -> str:
+        """Get all text from a section until the next heading."""
+        text_parts = []
+        sibling = heading.find_next_sibling()
+
+        while sibling and sibling.name not in ['h2', 'h3']:
+            if sibling.name == 'p':
+                text_parts.append(sibling.get_text())
+            sibling = sibling.find_next_sibling()
+
+        return ' '.join(text_parts)
+
+    def _extract_hometown_from_text(self, soup: BeautifulSoup) -> Dict[str, Any]:
+        """
+        Extract hometown from page text using patterns.
+
+        Args:
+            soup: BeautifulSoup object
+
+        Returns:
+            Dictionary with hometown_city and hometown_state if found
+        """
+        data = {}
+
+        # Get all paragraph text
+        paragraphs = soup.find_all('p')
+        for para in paragraphs[:5]:  # Check first 5 paragraphs
+            text = para.get_text()
+
+            for pattern in self.hometown_patterns:
+                match = re.search(pattern, text)
+                if match:
+                    data['hometown_city'] = match.group(1).strip()
+                    if match.lastindex >= 2:
+                        data['hometown_state'] = match.group(2).strip()
+                    return data
+
+        return data
 
     def _parse_infobox(self, infobox: BeautifulSoup) -> Dict[str, Any]:
         """
@@ -487,15 +578,25 @@ class WikipediaBioEnricher(BaseScraper):
         """
         data = {}
 
-        # Look for high school
-        for pattern in self.high_school_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                school = match.group(1).strip() if match.lastindex else match.group(0)
-                if 'High School' not in school:
-                    school = f"{school} High School"
-                data['high_school_name'] = school
-                break
+        # Look for high school with location pattern first
+        # e.g., "Highland Park High School in Dallas, Texas"
+        location_pattern = r'([A-Z][A-Za-z\'\s]+)\s+High\s+School\s+in\s+([A-Z][A-Za-z\s]+),?\s*([A-Z][A-Za-z\s]+)?'
+        location_match = re.search(location_pattern, text)
+        if location_match:
+            data['high_school_name'] = f"{location_match.group(1).strip()} High School"
+            data['high_school_city'] = location_match.group(2).strip().rstrip(',')
+            if location_match.group(3):
+                data['high_school_state'] = location_match.group(3).strip()
+        else:
+            # Fallback to simpler patterns
+            for pattern in self.high_school_patterns:
+                match = re.search(pattern, text, re.IGNORECASE)
+                if match:
+                    school = match.group(1).strip() if match.lastindex else match.group(0)
+                    if 'High School' not in school:
+                        school = f"{school} High School"
+                    data['high_school_name'] = school
+                    break
 
         # Look for college
         if 'college_name' not in data:
@@ -505,13 +606,19 @@ class WikipediaBioEnricher(BaseScraper):
                     data['college_name'] = self._clean_college_name(match.group(0))
                     break
 
-        # Look for graduation year
-        year_match = re.search(r'graduated?\s+(?:in\s+)?(\d{4})', text, re.IGNORECASE)
-        if year_match:
-            year = int(year_match.group(1))
+        # Look for graduation year - try high school year first, then general
+        hs_year_match = re.search(r'(?:graduated|class of)\s+(?:from\s+)?(?:\w+\s+)?High\s+School\s+in\s+(\d{4})', text, re.IGNORECASE)
+        if hs_year_match:
+            year = int(hs_year_match.group(1))
             if 1990 <= year <= 2030:
-                if 'high_school_name' in data:
-                    data['high_school_graduation_year'] = year
+                data['high_school_graduation_year'] = year
+        else:
+            year_match = re.search(r'graduated?\s+(?:in\s+)?(\d{4})', text, re.IGNORECASE)
+            if year_match:
+                year = int(year_match.group(1))
+                if 1990 <= year <= 2030:
+                    if 'high_school_name' in data:
+                        data['high_school_graduation_year'] = year
 
         return data
 

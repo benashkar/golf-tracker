@@ -504,9 +504,11 @@ class PGATourTournamentScraper(BaseScraper):
                     'variables': {'id': tournament_id}
                 },
                 headers={
-                    **self.get_headers(),
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                     'x-api-key': self.api_key,
+                    'Origin': 'https://www.pgatour.com',
+                    'Referer': 'https://www.pgatour.com/',
                 },
                 timeout=self.timeout
             )
