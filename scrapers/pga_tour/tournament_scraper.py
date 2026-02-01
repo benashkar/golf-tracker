@@ -187,19 +187,31 @@ class PGATourTournamentScraper(BaseScraper):
         """
 
         try:
+            headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'x-api-key': self.api_key,
+                'Origin': 'https://www.pgatour.com',
+                'Referer': 'https://www.pgatour.com/',
+            }
+            self.logger.info(f"Making GraphQL schedule request to {self.api_base}")
+
             response = self.session.post(
                 self.api_base,
                 json={
                     'query': query,
                     'variables': {'year': str(year)}
                 },
-                headers={
-                    **self.get_headers(),
-                    'Content-Type': 'application/json',
-                    'x-api-key': self.api_key,
-                },
+                headers=headers,
                 timeout=self.timeout
             )
+
+            self.logger.info(f"Schedule response status: {response.status_code}, length: {len(response.text)}")
+
+            if not response.text:
+                self.logger.error("Empty response from GraphQL API")
+                return self._fetch_schedule_html(year)
+
             response.raise_for_status()
             data = response.json()
 
