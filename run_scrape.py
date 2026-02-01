@@ -21,9 +21,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 def run_migrations():
     """Apply any pending database migrations."""
     from sqlalchemy import text
-    from database.connection import DatabaseConnection
+    from database.connection import DatabaseManager
 
-    db = DatabaseConnection()
+    db = DatabaseManager()
 
     migrations = [
         # Player ID columns
