@@ -117,13 +117,13 @@ class PGATourTournamentScraper(BaseScraper):
         # Process each tournament
         for tournament_data in tournaments:
             try:
-                tournament = self._process_tournament(tournament_data, year)
+                tournament_id = self._process_tournament(tournament_data, year)
                 self._stats['records_processed'] += 1
 
                 # Fetch results for completed OR in-progress tournaments
                 # This allows us to get live scores during tournaments
-                if tournament and tournament_data.get('status') in ['completed', 'in_progress']:
-                    self._fetch_and_save_results(tournament, tournament_data)
+                if tournament_id and tournament_data.get('status') in ['completed', 'in_progress']:
+                    self._fetch_and_save_results(tournament_id, tournament_data)
 
             except Exception as e:
                 self.logger.error(f"Error processing tournament: {e}")
@@ -392,7 +392,7 @@ class PGATourTournamentScraper(BaseScraper):
         self,
         tournament_data: Dict[str, Any],
         year: int
-    ) -> Optional[Tournament]:
+    ) -> Optional[int]:
         """
         Process and save a tournament to the database.
 
@@ -401,7 +401,7 @@ class PGATourTournamentScraper(BaseScraper):
             year: The season year
 
         Returns:
-            The Tournament object, or None if failed
+            The tournament_id, or None if failed
         """
         name = tournament_data.get('name', '').strip()
         if not name:
@@ -450,7 +450,8 @@ class PGATourTournamentScraper(BaseScraper):
                 self._stats['records_created'] += 1
                 self.logger.info(f"Created tournament: {name}")
 
-            return tournament
+            # Return the tournament_id (not the object) to avoid session detachment
+            return tournament.tournament_id
 
     def _update_tournament(
         self,
@@ -477,21 +478,22 @@ class PGATourTournamentScraper(BaseScraper):
 
     def _fetch_and_save_results(
         self,
-        tournament: Tournament,
+        tournament_id: int,
         tournament_data: Dict[str, Any]
     ):
         """
         Fetch and save results for a completed tournament using GraphQL API.
 
         Args:
-            tournament: Tournament object
-            tournament_data: Dictionary with tournament info (contains tournament ID)
+            tournament_id: Database tournament_id
+            tournament_data: Dictionary with tournament info (contains PGA tournament ID)
         """
-        tournament_id = tournament_data.get('pga_tournament_id', '')
-        if not tournament_id:
+        pga_tournament_id = tournament_data.get('pga_tournament_id', '')
+        if not pga_tournament_id:
             return
 
-        self.logger.info(f"Fetching results for {tournament.tournament_name}")
+        tournament_name = tournament_data.get('name', 'Unknown')
+        self.logger.info(f"Fetching results for {tournament_name}")
 
         # GraphQL query for leaderboard results (works for completed AND in-progress tournaments)
         query = """
@@ -526,7 +528,7 @@ class PGATourTournamentScraper(BaseScraper):
                 self.api_base,
                 json={
                     'query': query,
-                    'variables': {'id': tournament_id}
+                    'variables': {'id': pga_tournament_id}
                 },
                 headers={
                     'Content-Type': 'application/json',
@@ -545,7 +547,7 @@ class PGATourTournamentScraper(BaseScraper):
                 return
 
             if not data.get('data', {}).get('leaderboardV2'):
-                self.logger.warning(f"No leaderboard data for {tournament.tournament_name}")
+                self.logger.warning(f"No leaderboard data for {tournament_name}")
                 return
 
             leaderboard_data = data['data']['leaderboardV2']
@@ -555,15 +557,15 @@ class PGATourTournamentScraper(BaseScraper):
             # Filter out empty player entries and non-PlayerRowV2 types
             players = [p for p in players if p and p.get('player')]
 
-            self.logger.info(f"Found {len(players)} player results for {tournament.tournament_name} (status: {tournament_status})")
+            self.logger.info(f"Found {len(players)} player results for {tournament_name} (status: {tournament_status})")
 
         except Exception as e:
             self.logger.error(f"Failed to fetch tournament results: {e}")
             return
 
         with self.db.get_session() as session:
-            # Re-fetch tournament in this session
-            tournament = session.query(Tournament).get(tournament.tournament_id)
+            # Fetch tournament in this session using the database ID
+            tournament = session.query(Tournament).get(tournament_id)
 
             # Update tournament status based on API response
             if tournament_status == 'IN_PROGRESS':

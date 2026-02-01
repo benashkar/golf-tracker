@@ -56,12 +56,12 @@ class ChampionsTournamentScraper(BasePGAEcosystemScraper):
 
         for t in tournaments:
             try:
-                tournament = self._process_tournament(t, year)
+                tournament_id = self._process_tournament(t, year)
                 self._stats['records_processed'] += 1
 
                 # Fetch results for completed OR in-progress tournaments
-                if tournament and t.get('status') in ['completed', 'in_progress']:
-                    self._fetch_results(tournament, t)
+                if tournament_id and t.get('status') in ['completed', 'in_progress']:
+                    self._fetch_results(tournament_id, t)
             except Exception as e:
                 self.logger.error(f"Error processing tournament: {e}")
                 self._stats['errors'].append(str(e))
@@ -74,8 +74,8 @@ class ChampionsTournamentScraper(BasePGAEcosystemScraper):
             'errors': self._stats['errors']
         }
 
-    def _process_tournament(self, data: Dict, year: int) -> Optional[Tournament]:
-        """Process and save a tournament to the database."""
+    def _process_tournament(self, data: Dict, year: int) -> Optional[int]:
+        """Process and save a tournament to the database. Returns tournament_id."""
         name = data.get('name', '').strip()
         if not name:
             return None
@@ -111,13 +111,16 @@ class ChampionsTournamentScraper(BasePGAEcosystemScraper):
                 session.flush()
                 self._stats['records_created'] += 1
 
-            return tournament
+            # Return ID to avoid session detachment
+            return tournament.tournament_id
 
-    def _fetch_results(self, tournament: Tournament, data: Dict):
+    def _fetch_results(self, tournament_id: int, data: Dict):
         """Fetch and save results for a tournament with round-by-round scores."""
-        tid = data.get('tournament_id', '')
-        if not tid:
+        pga_tid = data.get('tournament_id', '')
+        if not pga_tid:
             return
+
+        tournament_name = data.get('name', 'Unknown')
 
         # Use the enhanced leaderboard query with rounds
         query = """
@@ -147,7 +150,7 @@ class ChampionsTournamentScraper(BasePGAEcosystemScraper):
         }
         """
 
-        data_response = self._graphql_request(query, {'id': tid})
+        data_response = self._graphql_request(query, {'id': pga_tid})
         if not data_response or 'leaderboardV2' not in data_response:
             return
 
@@ -158,10 +161,10 @@ class ChampionsTournamentScraper(BasePGAEcosystemScraper):
         # Filter valid players
         players = [p for p in players if p and p.get('player')]
 
-        self.logger.info(f"Found {len(players)} player results for {tournament.tournament_name} (status: {tournament_status})")
+        self.logger.info(f"Found {len(players)} player results for {tournament_name} (status: {tournament_status})")
 
         with self.db.get_session() as session:
-            tournament = session.query(Tournament).get(tournament.tournament_id)
+            tournament = session.query(Tournament).get(tournament_id)
 
             # Update tournament status
             if tournament_status == 'IN_PROGRESS':
