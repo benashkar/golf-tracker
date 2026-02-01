@@ -223,7 +223,9 @@ def run_web(host: str, port: int, debug: bool):
 
 @cli.command('scrape-all')
 @click.option('--year', default=None, type=int, help='Year for tournament data')
-def scrape_all(year: int):
+@click.option('--include-college', is_flag=True, help='Include NCAA college golf')
+@click.option('--include-amateur', is_flag=True, help='Include amateur golf (AJGA)')
+def scrape_all(year: int, include_college: bool, include_amateur: bool):
     """
     Scrape all configured leagues (PGA, Korn Ferry, Champions, LPGA).
 
@@ -233,15 +235,28 @@ def scrape_all(year: int):
     Examples:
         python -m cli.commands scrape-all
         python -m cli.commands scrape-all --year 2026
+        python -m cli.commands scrape-all --include-college --include-amateur
     """
     from datetime import datetime
     year = year or datetime.now().year
 
+    # Professional tour leagues (always scraped)
     leagues = [
         ('PGA', 'PGA Tour'),
         ('KORNFERRY', 'Korn Ferry Tour'),
         ('CHAMPIONS', 'PGA Tour Champions'),
         ('LPGA', 'LPGA Tour'),
+    ]
+
+    # College golf divisions (optional - scrape if flag set)
+    college_divisions = [
+        ('NCAA_D1_MENS', 'NCAA D1 Men\'s Golf'),
+        ('NCAA_D1_WOMENS', 'NCAA D1 Women\'s Golf'),
+    ]
+
+    # Amateur leagues (optional - scrape if flag set)
+    amateur_leagues = [
+        ('AJGA', 'American Junior Golf Association'),
     ]
 
     total_results = {
@@ -302,6 +317,47 @@ def scrape_all(year: int):
             error_msg = f"{league_name}: {str(e)}"
             total_results['errors'].append(error_msg)
             click.echo(f"  ERROR: {e}")
+
+    # College golf (optional)
+    if include_college:
+        click.echo(f"\n{'='*50}")
+        click.echo("Scraping College Golf...")
+        click.echo('='*50)
+
+        for division_code, division_name in college_divisions:
+            try:
+                click.echo(f"\n  Fetching {division_name} tournaments...")
+                from scrapers.college.tournament_scraper import CollegeGolfTournamentScraper
+                college_scraper = CollegeGolfTournamentScraper(division=division_code)
+                college_result = college_scraper.run(year=year)
+                total_results['tournaments_created'] += college_result.get('records_created', 0)
+                total_results['tournaments_updated'] += college_result.get('records_updated', 0)
+                click.echo(f"    Created: {college_result.get('records_created', 0)}, Updated: {college_result.get('records_updated', 0)}")
+            except Exception as e:
+                error_msg = f"{division_name}: {str(e)}"
+                total_results['errors'].append(error_msg)
+                click.echo(f"  ERROR: {e}")
+
+    # Amateur golf (optional)
+    if include_amateur:
+        click.echo(f"\n{'='*50}")
+        click.echo("Scraping Amateur Golf...")
+        click.echo('='*50)
+
+        for league_code, league_name in amateur_leagues:
+            try:
+                if league_code == 'AJGA':
+                    click.echo(f"\n  Fetching {league_name} tournaments...")
+                    from scrapers.amateur.ajga_scraper import AJGATournamentScraper
+                    ajga_scraper = AJGATournamentScraper()
+                    ajga_result = ajga_scraper.run(year=year)
+                    total_results['tournaments_created'] += ajga_result.get('records_created', 0)
+                    total_results['tournaments_updated'] += ajga_result.get('records_updated', 0)
+                    click.echo(f"    Created: {ajga_result.get('records_created', 0)}, Updated: {ajga_result.get('records_updated', 0)}")
+            except Exception as e:
+                error_msg = f"{league_name}: {str(e)}"
+                total_results['errors'].append(error_msg)
+                click.echo(f"  ERROR: {e}")
 
     # Bio enrichment
     click.echo(f"\n{'='*50}")
