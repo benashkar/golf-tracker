@@ -61,15 +61,37 @@ def run_migrations():
     print("Database schema up to date.")
 
 
-def run_scrape(year: int):
+def run_scrape(year: int, include_college: bool = False, include_amateur: bool = False):
     """Run the scrape-all command."""
-    from cli.commands import scrape_all
-    scrape_all(year=year)
+    from click.testing import CliRunner
+    from cli.commands import cli
+
+    runner = CliRunner()
+
+    # Build command arguments
+    args = ['scrape-all', '--year', str(year)]
+    if include_college:
+        args.append('--include-college')
+    if include_amateur:
+        args.append('--include-amateur')
+
+    # Invoke the CLI command
+    result = runner.invoke(cli, args)
+
+    # Print output
+    print(result.output)
+
+    if result.exit_code != 0:
+        print(f"Scrape failed with exit code {result.exit_code}")
+        if result.exception:
+            raise result.exception
 
 
 def main():
     parser = argparse.ArgumentParser(description='Run golf tracker scrape with auto-migration')
     parser.add_argument('--year', type=int, default=2026, help='Year to scrape')
+    parser.add_argument('--include-college', action='store_true', help='Include NCAA college golf')
+    parser.add_argument('--include-amateur', action='store_true', help='Include amateur golf (AJGA)')
     args = parser.parse_args()
 
     print(f"Golf Tracker Scrape - Year {args.year}")
@@ -79,7 +101,7 @@ def main():
     run_migrations()
 
     # Then run the scrape
-    run_scrape(args.year)
+    run_scrape(args.year, args.include_college, args.include_amateur)
 
 
 if __name__ == "__main__":
