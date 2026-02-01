@@ -56,21 +56,33 @@ def scrape(league: str, scrape_type: str, year: int):
 
     try:
         if scrape_type == 'roster':
-            from scrapers.pga_tour.roster_scraper import PGATourRosterScraper
-
-            if league != 'PGA':
+            if league == 'PGA':
+                from scrapers.pga_tour.roster_scraper import PGATourRosterScraper
+                scraper = PGATourRosterScraper()
+            elif league == 'KORNFERRY':
+                from scrapers.korn_ferry.roster_scraper import KornFerryRosterScraper
+                scraper = KornFerryRosterScraper()
+            elif league == 'CHAMPIONS':
+                from scrapers.champions.roster_scraper import ChampionsRosterScraper
+                scraper = ChampionsRosterScraper()
+            else:
                 raise click.ClickException(f"Roster scraper not yet implemented for {league}")
 
-            scraper = PGATourRosterScraper()
             result = scraper.run()
 
         elif scrape_type in ['tournaments', 'results']:
-            from scrapers.pga_tour.tournament_scraper import PGATourTournamentScraper
-
-            if league != 'PGA':
+            if league == 'PGA':
+                from scrapers.pga_tour.tournament_scraper import PGATourTournamentScraper
+                scraper = PGATourTournamentScraper()
+            elif league == 'KORNFERRY':
+                from scrapers.korn_ferry.tournament_scraper import KornFerryTournamentScraper
+                scraper = KornFerryTournamentScraper()
+            elif league == 'CHAMPIONS':
+                from scrapers.champions.tournament_scraper import ChampionsTournamentScraper
+                scraper = ChampionsTournamentScraper()
+            else:
                 raise click.ClickException(f"Tournament scraper not yet implemented for {league}")
 
-            scraper = PGATourTournamentScraper()
             result = scraper.run(year=year)
 
         # Print results

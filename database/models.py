@@ -176,6 +176,9 @@ class Player(Base):
     # External IDs (for matching with source data)
     # ==========================================================================
     pga_tour_id = Column(String(50), index=True)
+    korn_ferry_id = Column(String(50), index=True)
+    champions_id = Column(String(50), index=True)
+    lpga_id = Column(String(50), index=True)
     espn_id = Column(String(50))
     wikipedia_url = Column(String(500))
 
@@ -388,6 +391,9 @@ class Tournament(Base):
     # External IDs
     # ==========================================================================
     pga_tour_tournament_id = Column(String(50))
+    korn_ferry_tournament_id = Column(String(50))
+    champions_tournament_id = Column(String(50))
+    lpga_tournament_id = Column(String(50))
     espn_tournament_id = Column(String(50))
 
     # ==========================================================================
