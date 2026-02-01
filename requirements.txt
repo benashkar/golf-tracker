@@ -45,7 +45,7 @@ requests==2.31.0
 beautifulsoup4==4.12.2
 
 # lxml is a fast HTML/XML parser used by BeautifulSoup
-lxml==4.9.3
+lxml>=5.0.0
 
 # Selenium automates browsers for JS-heavy pages
 selenium==4.15.2
@@ -57,7 +57,7 @@ webdriver-manager==4.0.1
 # Data Processing
 # ------------------------------------------------------------------------------
 # Pandas for data manipulation (useful for processing scraped data)
-pandas==2.1.3
+pandas>=2.2.0
 
 # python-dateutil for parsing dates in various formats
 python-dateutil==2.8.2
