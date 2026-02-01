@@ -470,26 +470,23 @@ class PGATourTournamentScraper(BaseScraper):
 
         self.logger.info(f"Fetching results for {tournament.tournament_name}")
 
-        # GraphQL query for tournament results
+        # GraphQL query for leaderboard results (works for completed tournaments)
         query = """
-        query TournamentResults($id: ID!) {
-            tournamentPastResults(id: $id) {
+        query Leaderboard($id: ID!) {
+            leaderboardV2(id: $id) {
                 id
-                winner {
-                    id
-                    firstName
-                    lastName
-                }
                 players {
-                    id
-                    position
-                    total
-                    parRelativeScore
-                    player {
+                    ... on PlayerRowV2 {
                         id
-                        firstName
-                        lastName
-                        country
+                        position
+                        total
+                        score
+                        player {
+                            id
+                            firstName
+                            lastName
+                            country
+                        }
                     }
                 }
             }
@@ -519,12 +516,17 @@ class PGATourTournamentScraper(BaseScraper):
                 self.logger.error(f"GraphQL errors fetching results: {data['errors']}")
                 return
 
-            if not data.get('data', {}).get('tournamentPastResults'):
-                self.logger.warning(f"No results data for {tournament.tournament_name}")
+            if not data.get('data', {}).get('leaderboardV2'):
+                self.logger.warning(f"No leaderboard data for {tournament.tournament_name}")
                 return
 
-            results_data = data['data']['tournamentPastResults']
-            players = results_data.get('players', [])
+            leaderboard_data = data['data']['leaderboardV2']
+            players = leaderboard_data.get('players', [])
+
+            # Filter out empty player entries and non-PlayerRowV2 types
+            players = [p for p in players if p and p.get('player')]
+
+            self.logger.info(f"Found {len(players)} player results for {tournament.tournament_name}")
 
         except Exception as e:
             self.logger.error(f"Failed to fetch tournament results: {e}")
@@ -533,12 +535,16 @@ class PGATourTournamentScraper(BaseScraper):
         with self.db.get_session() as session:
             # Re-fetch tournament in this session
             tournament = session.query(Tournament).get(tournament.tournament_id)
+            results_saved = 0
 
             for player_result in players:
                 try:
                     self._save_player_result(session, tournament, player_result)
+                    results_saved += 1
                 except Exception as e:
                     self.logger.error(f"Error saving result: {e}")
+
+            self.logger.info(f"Saved {results_saved} results for {tournament.tournament_name}")
 
     def _save_player_result(
         self,
@@ -552,11 +558,14 @@ class PGATourTournamentScraper(BaseScraper):
         Args:
             session: Database session
             tournament: Tournament object
-            player_result: Dictionary with player result data from GraphQL
+            player_result: Dictionary with player result data from leaderboardV2 GraphQL
         """
-        # Get player info from nested player object or result itself
+        # Get player info from nested player object
         player_info = player_result.get('player', {})
-        pga_id = player_result.get('id', '') or player_info.get('id', '')
+        if not player_info:
+            return
+
+        pga_id = player_info.get('id', '')
         first_name = player_info.get('firstName', '')
         last_name = player_info.get('lastName', '')
         country = player_info.get('country', '')
@@ -596,29 +605,21 @@ class PGATourTournamentScraper(BaseScraper):
             player_id=player.player_id
         ).first()
 
-        # Parse position from GraphQL format (string like "1", "T4", "CUT", "W/D")
+        # Parse position from leaderboardV2 format (string like "1", "T4", "CUT", "WD")
         position_display = player_result.get('position', '')
         position_value = self._parse_position_value(position_display)
 
         # Determine if made cut based on position
-        made_cut = position_display not in ['CUT', 'W/D', 'DQ', 'MDF']
+        made_cut = position_display not in ['CUT', 'WD', 'DQ', 'MDF']
 
-        # Parse total score and to-par from GraphQL format
-        total_score_str = player_result.get('total', '')
-        par_relative_str = player_result.get('parRelativeScore', '')
-
-        try:
-            total_score = int(total_score_str) if total_score_str else None
-        except (ValueError, TypeError):
-            total_score = None
-
-        total_to_par = self._parse_par_relative(par_relative_str)
+        # Parse total score to-par from leaderboardV2 format (e.g., "-16", "+4", "E")
+        total_str = player_result.get('total', '')
+        total_to_par = self._parse_par_relative(total_str)
 
         if result:
             # Update existing result
             result.final_position = position_value
             result.final_position_display = position_display
-            result.total_score = total_score
             result.total_to_par = total_to_par
             result.made_cut = made_cut
             result.status = 'cut' if not made_cut else 'completed'
@@ -629,7 +630,6 @@ class PGATourTournamentScraper(BaseScraper):
                 player_id=player.player_id,
                 final_position=position_value,
                 final_position_display=position_display,
-                total_score=total_score,
                 total_to_par=total_to_par,
                 made_cut=made_cut,
                 status='cut' if not made_cut else 'completed',
