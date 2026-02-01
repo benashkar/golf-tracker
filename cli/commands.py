@@ -65,6 +65,9 @@ def scrape(league: str, scrape_type: str, year: int):
             elif league == 'CHAMPIONS':
                 from scrapers.champions.roster_scraper import ChampionsRosterScraper
                 scraper = ChampionsRosterScraper()
+            elif league == 'LPGA':
+                from scrapers.lpga.roster_scraper import LPGARosterScraper
+                scraper = LPGARosterScraper()
             else:
                 raise click.ClickException(f"Roster scraper not yet implemented for {league}")
 
@@ -80,6 +83,9 @@ def scrape(league: str, scrape_type: str, year: int):
             elif league == 'CHAMPIONS':
                 from scrapers.champions.tournament_scraper import ChampionsTournamentScraper
                 scraper = ChampionsTournamentScraper()
+            elif league == 'LPGA':
+                from scrapers.lpga.tournament_scraper import LPGATournamentScraper
+                scraper = LPGATournamentScraper()
             else:
                 raise click.ClickException(f"Tournament scraper not yet implemented for {league}")
 
@@ -219,7 +225,7 @@ def run_web(host: str, port: int, debug: bool):
 @click.option('--year', default=None, type=int, help='Year for tournament data')
 def scrape_all(year: int):
     """
-    Scrape all configured leagues (PGA, Korn Ferry, Champions).
+    Scrape all configured leagues (PGA, Korn Ferry, Champions, LPGA).
 
     This is the main command for the cron job - it scrapes rosters and
     tournaments for all active leagues.
@@ -235,6 +241,7 @@ def scrape_all(year: int):
         ('PGA', 'PGA Tour'),
         ('KORNFERRY', 'Korn Ferry Tour'),
         ('CHAMPIONS', 'PGA Tour Champions'),
+        ('LPGA', 'LPGA Tour'),
     ]
 
     total_results = {
@@ -262,6 +269,9 @@ def scrape_all(year: int):
             elif league_code == 'CHAMPIONS':
                 from scrapers.champions.roster_scraper import ChampionsRosterScraper
                 roster_scraper = ChampionsRosterScraper()
+            elif league_code == 'LPGA':
+                from scrapers.lpga.roster_scraper import LPGARosterScraper
+                roster_scraper = LPGARosterScraper()
 
             roster_result = roster_scraper.run()
             total_results['players_created'] += roster_result.get('records_created', 0)
@@ -279,6 +289,9 @@ def scrape_all(year: int):
             elif league_code == 'CHAMPIONS':
                 from scrapers.champions.tournament_scraper import ChampionsTournamentScraper
                 tournament_scraper = ChampionsTournamentScraper()
+            elif league_code == 'LPGA':
+                from scrapers.lpga.tournament_scraper import LPGATournamentScraper
+                tournament_scraper = LPGATournamentScraper()
 
             tournament_result = tournament_scraper.run(year=year)
             total_results['tournaments_created'] += tournament_result.get('records_created', 0)
