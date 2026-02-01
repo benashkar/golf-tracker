@@ -120,8 +120,9 @@ class PGATourTournamentScraper(BaseScraper):
                 tournament = self._process_tournament(tournament_data, year)
                 self._stats['records_processed'] += 1
 
-                # If tournament is completed, fetch results
-                if tournament and tournament_data.get('status') == 'completed':
+                # Fetch results for completed OR in-progress tournaments
+                # This allows us to get live scores during tournaments
+                if tournament and tournament_data.get('status') in ['completed', 'in_progress']:
                     self._fetch_and_save_results(tournament, tournament_data)
 
             except Exception as e:
@@ -239,6 +240,7 @@ class PGATourTournamentScraper(BaseScraper):
             List of normalized tournament dictionaries
         """
         tournaments = []
+        today = date.today()
 
         # Process completed tournaments
         for month_data in schedule_data.get('completed', []):
@@ -257,10 +259,25 @@ class PGATourTournamentScraper(BaseScraper):
                     'pga_tournament_id': tournament.get('id', ''),
                 })
 
-        # Process upcoming tournaments
+        # Process upcoming tournaments - check if any are currently in progress
         for month_data in schedule_data.get('upcoming', []):
             for tournament in month_data.get('tournaments', []):
                 start_date = self._parse_timestamp(tournament.get('startDate'))
+
+                # Determine if tournament is in progress
+                # Tournaments typically run 4 days (Thu-Sun)
+                if start_date:
+                    from datetime import timedelta
+                    end_date_estimate = start_date + timedelta(days=3)
+                    if start_date <= today <= end_date_estimate:
+                        status = 'in_progress'
+                    elif today > end_date_estimate:
+                        status = 'completed'
+                    else:
+                        status = 'scheduled'
+                else:
+                    status = 'scheduled'
+
                 tournaments.append({
                     'tournament_id': tournament.get('id', ''),
                     'name': tournament.get('tournamentName', ''),
@@ -270,11 +287,17 @@ class PGATourTournamentScraper(BaseScraper):
                     'state': tournament.get('state', ''),
                     'country': tournament.get('country', 'USA'),
                     'purse': self._parse_purse(tournament.get('purse', '')),
-                    'status': 'scheduled',
+                    'status': status,
                     'pga_tournament_id': tournament.get('id', ''),
                 })
 
-        self.logger.info(f"Found {len(tournaments)} tournaments from GraphQL API")
+        # Count by status
+        status_counts = {}
+        for t in tournaments:
+            s = t['status']
+            status_counts[s] = status_counts.get(s, 0) + 1
+
+        self.logger.info(f"Found {len(tournaments)} tournaments from GraphQL API: {status_counts}")
         return tournaments
 
     def _parse_timestamp(self, timestamp: Optional[int]) -> Optional[date]:
@@ -470,17 +493,22 @@ class PGATourTournamentScraper(BaseScraper):
 
         self.logger.info(f"Fetching results for {tournament.tournament_name}")
 
-        # GraphQL query for leaderboard results (works for completed tournaments)
+        # GraphQL query for leaderboard results (works for completed AND in-progress tournaments)
         query = """
         query Leaderboard($id: ID!) {
             leaderboardV2(id: $id) {
                 id
+                tournamentStatus
                 players {
                     ... on PlayerRowV2 {
                         id
                         position
                         total
+                        totalStrokes
                         score
+                        thru
+                        currentRound
+                        rounds
                         player {
                             id
                             firstName
@@ -522,11 +550,12 @@ class PGATourTournamentScraper(BaseScraper):
 
             leaderboard_data = data['data']['leaderboardV2']
             players = leaderboard_data.get('players', [])
+            tournament_status = leaderboard_data.get('tournamentStatus', 'COMPLETED')
 
             # Filter out empty player entries and non-PlayerRowV2 types
             players = [p for p in players if p and p.get('player')]
 
-            self.logger.info(f"Found {len(players)} player results for {tournament.tournament_name}")
+            self.logger.info(f"Found {len(players)} player results for {tournament.tournament_name} (status: {tournament_status})")
 
         except Exception as e:
             self.logger.error(f"Failed to fetch tournament results: {e}")
@@ -535,11 +564,18 @@ class PGATourTournamentScraper(BaseScraper):
         with self.db.get_session() as session:
             # Re-fetch tournament in this session
             tournament = session.query(Tournament).get(tournament.tournament_id)
+
+            # Update tournament status based on API response
+            if tournament_status == 'IN_PROGRESS':
+                tournament.status = 'in_progress'
+            elif tournament_status == 'COMPLETED':
+                tournament.status = 'completed'
+
             results_saved = 0
 
             for player_result in players:
                 try:
-                    self._save_player_result(session, tournament, player_result)
+                    self._save_player_result(session, tournament, player_result, tournament_status)
                     results_saved += 1
                 except Exception as e:
                     self.logger.error(f"Error saving result: {e}")
@@ -550,15 +586,17 @@ class PGATourTournamentScraper(BaseScraper):
         self,
         session,
         tournament: Tournament,
-        player_result: Dict[str, Any]
+        player_result: Dict[str, Any],
+        tournament_status: str = 'COMPLETED'
     ):
         """
-        Save a single player's tournament result.
+        Save a single player's tournament result with round-by-round scores.
 
         Args:
             session: Database session
             tournament: Tournament object
             player_result: Dictionary with player result data from leaderboardV2 GraphQL
+            tournament_status: Tournament status (IN_PROGRESS, COMPLETED, etc.)
         """
         # Get player info from nested player object
         player_info = player_result.get('player', {})
@@ -616,13 +654,55 @@ class PGATourTournamentScraper(BaseScraper):
         total_str = player_result.get('total', '')
         total_to_par = self._parse_par_relative(total_str)
 
+        # Parse total strokes
+        total_strokes_str = player_result.get('totalStrokes', '')
+        total_strokes = None
+        if total_strokes_str:
+            try:
+                total_strokes = int(total_strokes_str)
+            except (ValueError, TypeError):
+                pass
+
+        # Parse round-by-round scores from 'rounds' field
+        # Format: ['62', '65', '68', '-'] where '-' means not yet played
+        rounds = player_result.get('rounds', [])
+        round_1_score = self._parse_round_score(rounds[0] if len(rounds) > 0 else None)
+        round_2_score = self._parse_round_score(rounds[1] if len(rounds) > 1 else None)
+        round_3_score = self._parse_round_score(rounds[2] if len(rounds) > 2 else None)
+        round_4_score = self._parse_round_score(rounds[3] if len(rounds) > 3 else None)
+
+        # Create round_scores dict for JSON field
+        round_scores_dict = {}
+        if round_1_score is not None:
+            round_scores_dict['R1'] = round_1_score
+        if round_2_score is not None:
+            round_scores_dict['R2'] = round_2_score
+        if round_3_score is not None:
+            round_scores_dict['R3'] = round_3_score
+        if round_4_score is not None:
+            round_scores_dict['R4'] = round_4_score
+
+        # Determine player status based on tournament status and position
+        if not made_cut:
+            player_status = 'cut'
+        elif tournament_status == 'IN_PROGRESS':
+            player_status = 'active'
+        else:
+            player_status = 'active'
+
         if result:
             # Update existing result
             result.final_position = position_value
             result.final_position_display = position_display
             result.total_to_par = total_to_par
+            result.total_score = total_strokes
             result.made_cut = made_cut
-            result.status = 'cut' if not made_cut else 'completed'
+            result.status = player_status
+            result.round_1_score = round_1_score
+            result.round_2_score = round_2_score
+            result.round_3_score = round_3_score
+            result.round_4_score = round_4_score
+            result.round_scores = round_scores_dict if round_scores_dict else None
         else:
             # Create new result
             result = TournamentResult(
@@ -631,10 +711,25 @@ class PGATourTournamentScraper(BaseScraper):
                 final_position=position_value,
                 final_position_display=position_display,
                 total_to_par=total_to_par,
+                total_score=total_strokes,
                 made_cut=made_cut,
-                status='cut' if not made_cut else 'completed',
+                status=player_status,
+                round_1_score=round_1_score,
+                round_2_score=round_2_score,
+                round_3_score=round_3_score,
+                round_4_score=round_4_score,
+                round_scores=round_scores_dict if round_scores_dict else None,
             )
             session.add(result)
+
+    def _parse_round_score(self, score_str: Optional[str]) -> Optional[int]:
+        """Parse a round score string to integer (e.g., '68' -> 68, '-' -> None)."""
+        if not score_str or score_str == '-':
+            return None
+        try:
+            return int(score_str)
+        except (ValueError, TypeError):
+            return None
 
     def _parse_position_value(self, position_str: str) -> Optional[int]:
         """Parse position string to integer value."""
