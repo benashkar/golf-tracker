@@ -71,9 +71,9 @@ class PGATourTournamentScraper(BaseScraper):
         self.source_url = config['urls']['schedule']
         self.current_year = datetime.now().year
 
-        # API endpoints
-        self.schedule_api = 'https://statdata.pgatour.com/r/current/schedule-v2.json'
-        self.leaderboard_api = 'https://statdata.pgatour.com/r/{tournament_id}/leaderboard-v2.json'
+        # GraphQL API endpoints
+        self.api_base = 'https://orchestrator.pgatour.com/graphql'
+        self.api_key = 'da2-gsrx5bibzbb4njvhl7t37wqyl4'
 
         self.logger = logger.bind(
             scraper='PGATourTournamentScraper',
@@ -144,7 +144,7 @@ class PGATourTournamentScraper(BaseScraper):
 
     def _fetch_schedule(self, year: int) -> Optional[List[Dict[str, Any]]]:
         """
-        Fetch the tournament schedule for a season.
+        Fetch the tournament schedule for a season using GraphQL API.
 
         Args:
             year: The season year
@@ -152,19 +152,127 @@ class PGATourTournamentScraper(BaseScraper):
         Returns:
             List of tournament dictionaries, or None if failed
         """
-        self.logger.info(f"Fetching {year} tournament schedule")
+        self.logger.info(f"Fetching {year} tournament schedule from GraphQL API")
 
-        # Try the API first
-        data = self.get_json(self.schedule_api)
+        # GraphQL query for schedule
+        query = """
+        query Schedule($year: String!) {
+            schedule(tourCode: "R", year: $year) {
+                completed {
+                    month
+                    tournaments {
+                        id
+                        tournamentName
+                        startDate
+                        city
+                        state
+                        country
+                        purse
+                    }
+                }
+                upcoming {
+                    month
+                    tournaments {
+                        id
+                        tournamentName
+                        startDate
+                        city
+                        state
+                        country
+                        purse
+                    }
+                }
+            }
+        }
+        """
 
-        if data and 'years' in data:
-            # Find the requested year
-            for year_data in data['years']:
-                if year_data.get('year') == str(year):
-                    return self._parse_schedule_data(year_data)
+        try:
+            response = self.session.post(
+                self.api_base,
+                json={
+                    'query': query,
+                    'variables': {'year': str(year)}
+                },
+                headers={
+                    **self.get_headers(),
+                    'Content-Type': 'application/json',
+                    'x-api-key': self.api_key,
+                },
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if 'errors' in data:
+                self.logger.error(f"GraphQL errors: {data['errors']}")
+                return self._fetch_schedule_html(year)
+
+            if 'data' in data and 'schedule' in data['data']:
+                return self._parse_graphql_schedule(data['data']['schedule'])
+
+        except Exception as e:
+            self.logger.error(f"GraphQL schedule request failed: {e}")
 
         # Fallback to HTML
         return self._fetch_schedule_html(year)
+
+    def _parse_graphql_schedule(self, schedule_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Parse tournament schedule from GraphQL API response.
+
+        Args:
+            schedule_data: Schedule data from GraphQL response
+
+        Returns:
+            List of normalized tournament dictionaries
+        """
+        tournaments = []
+
+        # Process completed tournaments
+        for month_data in schedule_data.get('completed', []):
+            for tournament in month_data.get('tournaments', []):
+                start_date = self._parse_timestamp(tournament.get('startDate'))
+                tournaments.append({
+                    'tournament_id': tournament.get('id', ''),
+                    'name': tournament.get('tournamentName', ''),
+                    'start_date': start_date,
+                    'end_date': None,  # GraphQL doesn't provide end date
+                    'city': tournament.get('city', ''),
+                    'state': tournament.get('state', ''),
+                    'country': tournament.get('country', 'USA'),
+                    'purse': self._parse_purse(tournament.get('purse', '')),
+                    'status': 'completed',
+                    'pga_tournament_id': tournament.get('id', ''),
+                })
+
+        # Process upcoming tournaments
+        for month_data in schedule_data.get('upcoming', []):
+            for tournament in month_data.get('tournaments', []):
+                start_date = self._parse_timestamp(tournament.get('startDate'))
+                tournaments.append({
+                    'tournament_id': tournament.get('id', ''),
+                    'name': tournament.get('tournamentName', ''),
+                    'start_date': start_date,
+                    'end_date': None,
+                    'city': tournament.get('city', ''),
+                    'state': tournament.get('state', ''),
+                    'country': tournament.get('country', 'USA'),
+                    'purse': self._parse_purse(tournament.get('purse', '')),
+                    'status': 'scheduled',
+                    'pga_tournament_id': tournament.get('id', ''),
+                })
+
+        self.logger.info(f"Found {len(tournaments)} tournaments from GraphQL API")
+        return tournaments
+
+    def _parse_timestamp(self, timestamp: Optional[int]) -> Optional[date]:
+        """Parse Unix timestamp (milliseconds) to date object."""
+        if not timestamp:
+            return None
+        try:
+            return datetime.fromtimestamp(timestamp / 1000).date()
+        except Exception:
+            return None
 
     def _parse_schedule_data(
         self,
@@ -338,7 +446,7 @@ class PGATourTournamentScraper(BaseScraper):
         tournament_data: Dict[str, Any]
     ):
         """
-        Fetch and save results for a completed tournament.
+        Fetch and save results for a completed tournament using GraphQL API.
 
         Args:
             tournament: Tournament object
@@ -350,16 +458,63 @@ class PGATourTournamentScraper(BaseScraper):
 
         self.logger.info(f"Fetching results for {tournament.tournament_name}")
 
-        # Fetch leaderboard
-        url = self.leaderboard_api.format(tournament_id=tournament_id)
-        data = self.get_json(url)
+        # GraphQL query for tournament results
+        query = """
+        query TournamentResults($id: ID!) {
+            tournamentPastResults(id: $id) {
+                id
+                winner {
+                    id
+                    firstName
+                    lastName
+                }
+                players {
+                    id
+                    position
+                    total
+                    parRelativeScore
+                    player {
+                        id
+                        firstName
+                        lastName
+                        country
+                    }
+                }
+            }
+        }
+        """
 
-        if not data or 'leaderboard' not in data:
-            self.logger.warning(f"No leaderboard data for {tournament.tournament_name}")
+        try:
+            response = self.session.post(
+                self.api_base,
+                json={
+                    'query': query,
+                    'variables': {'id': tournament_id}
+                },
+                headers={
+                    **self.get_headers(),
+                    'Content-Type': 'application/json',
+                    'x-api-key': self.api_key,
+                },
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if 'errors' in data:
+                self.logger.error(f"GraphQL errors fetching results: {data['errors']}")
+                return
+
+            if not data.get('data', {}).get('tournamentPastResults'):
+                self.logger.warning(f"No results data for {tournament.tournament_name}")
+                return
+
+            results_data = data['data']['tournamentPastResults']
+            players = results_data.get('players', [])
+
+        except Exception as e:
+            self.logger.error(f"Failed to fetch tournament results: {e}")
             return
-
-        leaderboard = data.get('leaderboard', {})
-        players = leaderboard.get('players', [])
 
         with self.db.get_session() as session:
             # Re-fetch tournament in this session
@@ -383,33 +538,40 @@ class PGATourTournamentScraper(BaseScraper):
         Args:
             session: Database session
             tournament: Tournament object
-            player_result: Dictionary with player result data
+            player_result: Dictionary with player result data from GraphQL
         """
-        # Get or create player
-        pga_id = player_result.get('pid', '')
-        first_name = player_result.get('playerNames', {}).get('firstName', '')
-        last_name = player_result.get('playerNames', {}).get('lastName', '')
+        # Get player info from nested player object or result itself
+        player_info = player_result.get('player', {})
+        pga_id = player_result.get('id', '') or player_info.get('id', '')
+        first_name = player_info.get('firstName', '')
+        last_name = player_info.get('lastName', '')
+        country = player_info.get('country', '')
 
-        if not first_name or not last_name:
+        if not pga_id:
             return
 
-        # Find player
+        # Find player by PGA Tour ID first (most reliable)
         player = session.query(Player).filter_by(
             pga_tour_id=pga_id
         ).first()
 
-        if not player:
+        # If not found by ID and we have names, try by name
+        if not player and first_name and last_name:
             player = session.query(Player).filter_by(
                 first_name=first_name,
                 last_name=last_name
             ).first()
 
         if not player:
-            # Create minimal player record
+            # Only create if we have names, otherwise skip
+            if not first_name or not last_name:
+                self.logger.debug(f"Skipping player {pga_id} - no name data and not in roster")
+                return
             player = Player(
                 first_name=first_name,
                 last_name=last_name,
-                pga_tour_id=pga_id
+                pga_tour_id=pga_id,
+                hometown_country=country
             )
             session.add(player)
             session.flush()
@@ -420,44 +582,32 @@ class PGATourTournamentScraper(BaseScraper):
             player_id=player.player_id
         ).first()
 
-        # Parse scores
-        rounds = player_result.get('rounds', [])
-        round_scores = {}
-        round_to_par = {}
+        # Parse position from GraphQL format (string like "1", "T4", "CUT", "W/D")
+        position_display = player_result.get('position', '')
+        position_value = self._parse_position_value(position_display)
 
-        for i, round_data in enumerate(rounds[:4], 1):
-            score = round_data.get('strokes')
-            if score:
-                round_scores[f'R{i}'] = score
+        # Determine if made cut based on position
+        made_cut = position_display not in ['CUT', 'W/D', 'DQ', 'MDF']
 
-            to_par = round_data.get('toPar')
-            if to_par is not None:
-                round_to_par[f'R{i}'] = to_par
+        # Parse total score and to-par from GraphQL format
+        total_score_str = player_result.get('total', '')
+        par_relative_str = player_result.get('parRelativeScore', '')
 
-        # Parse position
-        position = player_result.get('position', {})
-        position_value = position.get('value', None)
-        position_display = position.get('displayValue', '')
+        try:
+            total_score = int(total_score_str) if total_score_str else None
+        except (ValueError, TypeError):
+            total_score = None
 
-        # Determine if made cut
-        status_str = player_result.get('status', 'active')
-        made_cut = status_str not in ['cut', 'CUT']
+        total_to_par = self._parse_par_relative(par_relative_str)
 
         if result:
             # Update existing result
             result.final_position = position_value
             result.final_position_display = position_display
-            result.total_score = player_result.get('totalStrokes')
-            result.total_to_par = player_result.get('total')
-            result.round_scores = round_scores
-            result.round_to_par = round_to_par
-            result.round_1_score = rounds[0].get('strokes') if len(rounds) > 0 else None
-            result.round_2_score = rounds[1].get('strokes') if len(rounds) > 1 else None
-            result.round_3_score = rounds[2].get('strokes') if len(rounds) > 2 else None
-            result.round_4_score = rounds[3].get('strokes') if len(rounds) > 3 else None
+            result.total_score = total_score
+            result.total_to_par = total_to_par
             result.made_cut = made_cut
-            result.status = 'cut' if not made_cut else 'active'
-            result.earnings = self._parse_earnings(player_result.get('money', ''))
+            result.status = 'cut' if not made_cut else 'completed'
         else:
             # Create new result
             result = TournamentResult(
@@ -465,19 +615,34 @@ class PGATourTournamentScraper(BaseScraper):
                 player_id=player.player_id,
                 final_position=position_value,
                 final_position_display=position_display,
-                total_score=player_result.get('totalStrokes'),
-                total_to_par=player_result.get('total'),
-                round_scores=round_scores,
-                round_to_par=round_to_par,
-                round_1_score=rounds[0].get('strokes') if len(rounds) > 0 else None,
-                round_2_score=rounds[1].get('strokes') if len(rounds) > 1 else None,
-                round_3_score=rounds[2].get('strokes') if len(rounds) > 2 else None,
-                round_4_score=rounds[3].get('strokes') if len(rounds) > 3 else None,
+                total_score=total_score,
+                total_to_par=total_to_par,
                 made_cut=made_cut,
-                status='cut' if not made_cut else 'active',
-                earnings=self._parse_earnings(player_result.get('money', '')),
+                status='cut' if not made_cut else 'completed',
             )
             session.add(result)
+
+    def _parse_position_value(self, position_str: str) -> Optional[int]:
+        """Parse position string to integer value."""
+        if not position_str:
+            return None
+        # Remove 'T' prefix for ties (e.g., "T4" -> 4)
+        clean = position_str.replace('T', '').strip()
+        try:
+            return int(clean)
+        except (ValueError, TypeError):
+            return None
+
+    def _parse_par_relative(self, par_str: str) -> Optional[int]:
+        """Parse par-relative score string to integer (e.g., '-16' -> -16, 'E' -> 0)."""
+        if not par_str:
+            return None
+        if par_str == 'E':
+            return 0
+        try:
+            return int(par_str)
+        except (ValueError, TypeError):
+            return None
 
     def _parse_date(self, date_str: Optional[str]) -> Optional[date]:
         """Parse date string to date object."""

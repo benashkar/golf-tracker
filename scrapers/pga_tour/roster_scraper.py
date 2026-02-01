@@ -77,7 +77,7 @@ class PGATourRosterScraper(BaseScraper):
         # PGA Tour API endpoints
         # These were discovered by inspecting network requests on pgatour.com
         self.api_base = 'https://orchestrator.pgatour.com/graphql'
-        self.players_json_url = 'https://statdata.pgatour.com/players/player.json'
+        self.api_key = 'da2-gsrx5bibzbb4njvhl7t37wqyl4'
 
         self.logger = logger.bind(
             scraper='PGATourRosterScraper',
@@ -157,7 +157,7 @@ class PGATourRosterScraper(BaseScraper):
 
     def _fetch_players_api(self) -> Optional[List[Dict[str, Any]]]:
         """
-        Fetch player data from the PGA Tour API.
+        Fetch player data from the PGA Tour GraphQL API.
 
         Returns:
             List of player dictionaries, or None if failed
@@ -174,24 +174,9 @@ class PGATourRosterScraper(BaseScraper):
         go to the Network tab, and reload the page. Look for
         XHR/Fetch requests that return JSON.
         """
-        self.logger.info("Fetching players from PGA Tour API")
+        self.logger.info("Fetching players from PGA Tour GraphQL API")
 
-        # Try the player JSON endpoint first
-        data = self.get_json(self.players_json_url)
-        if data and 'plrs' in data:
-            players = []
-            for plr in data['plrs']:
-                players.append({
-                    'pga_tour_id': plr.get('pid', ''),
-                    'first_name': plr.get('nameF', ''),
-                    'last_name': plr.get('nameL', ''),
-                    'country': plr.get('ct', ''),
-                    'is_amateur': plr.get('isAm', False),
-                })
-            self.logger.info(f"Found {len(players)} players from API")
-            return players
-
-        # If that fails, try GraphQL
+        # Use the working GraphQL playerDirectory query
         return self._fetch_players_graphql()
 
     def _fetch_players_graphql(self) -> Optional[List[Dict[str, Any]]]:
@@ -201,16 +186,15 @@ class PGATourRosterScraper(BaseScraper):
         Returns:
             List of player dictionaries, or None if failed
         """
-        # GraphQL query for player list
+        # GraphQL query for player directory - uses enum TourCode (R = PGA Tour)
         query = """
-        query PlayerDirectory($tourCode: String!) {
-            playerDirectory(tourCode: $tourCode) {
+        query {
+            playerDirectory(tourCode: R) {
                 players {
                     id
                     firstName
                     lastName
                     country
-                    countryFlag
                     isActive
                 }
             }
@@ -220,29 +204,33 @@ class PGATourRosterScraper(BaseScraper):
         try:
             response = self.session.post(
                 self.api_base,
-                json={
-                    'query': query,
-                    'variables': {'tourCode': 'R'}  # R = Regular PGA Tour
-                },
+                json={'query': query},
                 headers={
                     **self.get_headers(),
                     'Content-Type': 'application/json',
+                    'x-api-key': self.api_key,
                 },
                 timeout=self.timeout
             )
             response.raise_for_status()
             data = response.json()
 
+            if 'errors' in data:
+                self.logger.error(f"GraphQL errors: {data['errors']}")
+                return None
+
             if 'data' in data and 'playerDirectory' in data['data']:
                 players_raw = data['data']['playerDirectory']['players']
                 players = []
                 for p in players_raw:
-                    players.append({
-                        'pga_tour_id': p.get('id', ''),
-                        'first_name': p.get('firstName', ''),
-                        'last_name': p.get('lastName', ''),
-                        'country': p.get('country', ''),
-                    })
+                    if p.get('isActive', False):
+                        players.append({
+                            'pga_tour_id': p.get('id', ''),
+                            'first_name': p.get('firstName', ''),
+                            'last_name': p.get('lastName', ''),
+                            'country': p.get('country', ''),
+                        })
+                self.logger.info(f"Found {len(players)} active players from GraphQL API")
                 return players
 
         except Exception as e:

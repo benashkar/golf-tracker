@@ -56,10 +56,10 @@ LEAGUES: Dict[str, Dict[str, Any]] = {
             'tournament_results': 'https://www.pgatour.com/tournaments/{tournament_slug}/leaderboard',
         },
 
-        # API endpoints (PGA Tour has a GraphQL API we might use)
+        # API endpoints (PGA Tour GraphQL API)
         'api': {
             'base': 'https://orchestrator.pgatour.com/graphql',
-            'players_list': 'https://statdata.pgatour.com/players/player.json',
+            'api_key': 'da2-gsrx5bibzbb4njvhl7t37wqyl4',
         },
 
         # Scraping settings
