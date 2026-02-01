@@ -182,6 +182,10 @@ class Player(Base):
     espn_id = Column(String(50))
     wikipedia_url = Column(String(500))
 
+    # Bio source tracking - where we found the hometown/high school info
+    bio_source_url = Column(String(500))  # URL where bio info was found
+    bio_source_name = Column(String(50))  # 'wikipedia', 'espn', 'grokepedia', 'ajga', etc.
+
     # Profile image
     profile_image_url = Column(String(500))
 

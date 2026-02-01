@@ -359,16 +359,19 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
                 total_results['errors'].append(error_msg)
                 click.echo(f"  ERROR: {e}")
 
-    # Bio enrichment
+    # Bio enrichment from multiple sources (Wikipedia, ESPN, Grokepedia)
     click.echo(f"\n{'='*50}")
-    click.echo("Enriching player bios from Wikipedia...")
+    click.echo("Enriching player bios from multiple sources...")
     click.echo('='*50)
 
     try:
-        from scrapers.wikipedia.bio_enricher import WikipediaBioEnricher
-        enricher = WikipediaBioEnricher()
+        from scrapers.bio.multi_source_enricher import MultiSourceBioEnricher
+        enricher = MultiSourceBioEnricher()
         bio_result = enricher.run(limit=100, force=False)
         click.echo(f"  Enriched: {bio_result.get('enriched', 0)} players")
+        click.echo(f"  Sources: Wikipedia={bio_result.get('sources_used', {}).get('wikipedia', 0)}, "
+                   f"ESPN={bio_result.get('sources_used', {}).get('espn', 0)}, "
+                   f"Grokepedia={bio_result.get('sources_used', {}).get('grokepedia', 0)}")
     except Exception as e:
         total_results['errors'].append(f"Bio enrichment: {str(e)}")
         click.echo(f"  ERROR: {e}")

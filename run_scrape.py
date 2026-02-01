@@ -45,6 +45,10 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_korn_ferry_tournament_id ON tournaments(korn_ferry_tournament_id)",
         "CREATE INDEX IF NOT EXISTS idx_champions_tournament_id ON tournaments(champions_tournament_id)",
         "CREATE INDEX IF NOT EXISTS idx_lpga_tournament_id ON tournaments(lpga_tournament_id)",
+
+        # Bio source tracking columns
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS bio_source_url VARCHAR(500)",
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS bio_source_name VARCHAR(50)",
     ]
 
     print("Checking database schema...")
