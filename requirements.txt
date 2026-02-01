@@ -27,8 +27,8 @@ gunicorn==21.2.0
 # Using 2.0.36+ for Python 3.13 compatibility
 SQLAlchemy>=2.0.36
 
-# psycopg2-binary is the PostgreSQL database driver (for Render deployment)
-psycopg2-binary==2.9.9
+# psycopg is the modern PostgreSQL adapter (psycopg3) with Python 3.13 support
+psycopg[binary]>=3.1.0
 
 # PyMySQL is the MySQL database driver (for local development if needed)
 PyMySQL==1.1.0

@@ -80,10 +80,12 @@ class Config:
         'postgresql://golf_tracker:password@localhost:5432/golf_tracker'
     )
 
-    # Render uses 'postgres://' but SQLAlchemy needs 'postgresql://'
-    # This fixes the URL format automatically
+    # Render uses 'postgres://' but SQLAlchemy needs 'postgresql+psycopg://'
+    # We use psycopg (v3) driver for Python 3.13 compatibility
     if _raw_database_url.startswith('postgres://'):
-        DATABASE_URL = _raw_database_url.replace('postgres://', 'postgresql://', 1)
+        DATABASE_URL = _raw_database_url.replace('postgres://', 'postgresql+psycopg://', 1)
+    elif _raw_database_url.startswith('postgresql://'):
+        DATABASE_URL = _raw_database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
     else:
         DATABASE_URL = _raw_database_url
 
