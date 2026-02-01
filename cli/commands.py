@@ -215,6 +215,110 @@ def run_web(host: str, port: int, debug: bool):
         raise click.ClickException(str(e))
 
 
+@cli.command('scrape-all')
+@click.option('--year', default=None, type=int, help='Year for tournament data')
+def scrape_all(year: int):
+    """
+    Scrape all configured leagues (PGA, Korn Ferry, Champions).
+
+    This is the main command for the cron job - it scrapes rosters and
+    tournaments for all active leagues.
+
+    Examples:
+        python -m cli.commands scrape-all
+        python -m cli.commands scrape-all --year 2026
+    """
+    from datetime import datetime
+    year = year or datetime.now().year
+
+    leagues = [
+        ('PGA', 'PGA Tour'),
+        ('KORNFERRY', 'Korn Ferry Tour'),
+        ('CHAMPIONS', 'PGA Tour Champions'),
+    ]
+
+    total_results = {
+        'players_created': 0,
+        'players_updated': 0,
+        'tournaments_created': 0,
+        'tournaments_updated': 0,
+        'errors': []
+    }
+
+    for league_code, league_name in leagues:
+        click.echo(f"\n{'='*50}")
+        click.echo(f"Scraping {league_name}...")
+        click.echo('='*50)
+
+        try:
+            # Roster scrape
+            click.echo(f"\n  Fetching {league_name} roster...")
+            if league_code == 'PGA':
+                from scrapers.pga_tour.roster_scraper import PGATourRosterScraper
+                roster_scraper = PGATourRosterScraper()
+            elif league_code == 'KORNFERRY':
+                from scrapers.korn_ferry.roster_scraper import KornFerryRosterScraper
+                roster_scraper = KornFerryRosterScraper()
+            elif league_code == 'CHAMPIONS':
+                from scrapers.champions.roster_scraper import ChampionsRosterScraper
+                roster_scraper = ChampionsRosterScraper()
+
+            roster_result = roster_scraper.run()
+            total_results['players_created'] += roster_result.get('records_created', 0)
+            total_results['players_updated'] += roster_result.get('records_updated', 0)
+            click.echo(f"    Created: {roster_result.get('records_created', 0)}, Updated: {roster_result.get('records_updated', 0)}")
+
+            # Tournament scrape
+            click.echo(f"\n  Fetching {league_name} tournaments for {year}...")
+            if league_code == 'PGA':
+                from scrapers.pga_tour.tournament_scraper import PGATourTournamentScraper
+                tournament_scraper = PGATourTournamentScraper()
+            elif league_code == 'KORNFERRY':
+                from scrapers.korn_ferry.tournament_scraper import KornFerryTournamentScraper
+                tournament_scraper = KornFerryTournamentScraper()
+            elif league_code == 'CHAMPIONS':
+                from scrapers.champions.tournament_scraper import ChampionsTournamentScraper
+                tournament_scraper = ChampionsTournamentScraper()
+
+            tournament_result = tournament_scraper.run(year=year)
+            total_results['tournaments_created'] += tournament_result.get('records_created', 0)
+            total_results['tournaments_updated'] += tournament_result.get('records_updated', 0)
+            click.echo(f"    Created: {tournament_result.get('records_created', 0)}, Updated: {tournament_result.get('records_updated', 0)}")
+
+        except Exception as e:
+            error_msg = f"{league_name}: {str(e)}"
+            total_results['errors'].append(error_msg)
+            click.echo(f"  ERROR: {e}")
+
+    # Bio enrichment
+    click.echo(f"\n{'='*50}")
+    click.echo("Enriching player bios from Wikipedia...")
+    click.echo('='*50)
+
+    try:
+        from scrapers.wikipedia.bio_enricher import WikipediaBioEnricher
+        enricher = WikipediaBioEnricher()
+        bio_result = enricher.run(limit=100, force=False)
+        click.echo(f"  Enriched: {bio_result.get('enriched', 0)} players")
+    except Exception as e:
+        total_results['errors'].append(f"Bio enrichment: {str(e)}")
+        click.echo(f"  ERROR: {e}")
+
+    # Summary
+    click.echo(f"\n{'='*50}")
+    click.echo("SCRAPE COMPLETE - Summary")
+    click.echo('='*50)
+    click.echo(f"  Players Created: {total_results['players_created']}")
+    click.echo(f"  Players Updated: {total_results['players_updated']}")
+    click.echo(f"  Tournaments Created: {total_results['tournaments_created']}")
+    click.echo(f"  Tournaments Updated: {total_results['tournaments_updated']}")
+
+    if total_results['errors']:
+        click.echo(f"\n  Errors ({len(total_results['errors'])}):")
+        for error in total_results['errors']:
+            click.echo(f"    - {error}")
+
+
 @cli.command()
 def stats():
     """
