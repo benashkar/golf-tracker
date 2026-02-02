@@ -402,6 +402,7 @@ class Tournament(Base):
     korn_ferry_tournament_id = Column(String(50))
     champions_tournament_id = Column(String(50))
     lpga_tournament_id = Column(String(50))
+    dpworld_tournament_id = Column(String(50))  # DP World Tour (European Tour)
     espn_tournament_id = Column(String(50))
     pga_americas_tournament_id = Column(String(50))  # PGA Tour Americas
     usga_tournament_id = Column(String(50))  # USGA Amateur Events

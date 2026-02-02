@@ -16,13 +16,13 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from sqlalchemy import text
-from database.connection import DatabaseConnection
+from database.connection import DatabaseManager
 
 
 def run_migration():
     """Add missing tour-specific ID columns to players and tournaments tables."""
 
-    db = DatabaseConnection()
+    db = DatabaseManager()
 
     migrations = [
         # Player ID columns
@@ -39,11 +39,13 @@ def run_migration():
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS korn_ferry_tournament_id VARCHAR(50)",
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS champions_tournament_id VARCHAR(50)",
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS lpga_tournament_id VARCHAR(50)",
+        "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS dpworld_tournament_id VARCHAR(50)",
 
         # Tournament ID indexes
         "CREATE INDEX IF NOT EXISTS idx_korn_ferry_tournament_id ON tournaments(korn_ferry_tournament_id)",
         "CREATE INDEX IF NOT EXISTS idx_champions_tournament_id ON tournaments(champions_tournament_id)",
         "CREATE INDEX IF NOT EXISTS idx_lpga_tournament_id ON tournaments(lpga_tournament_id)",
+        "CREATE INDEX IF NOT EXISTS idx_dpworld_tournament_id ON tournaments(dpworld_tournament_id)",
     ]
 
     print("Running database migrations...")
