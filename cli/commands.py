@@ -68,6 +68,12 @@ def scrape(league: str, scrape_type: str, year: int):
             elif league == 'LPGA':
                 from scrapers.lpga.roster_scraper import LPGARosterScraper
                 scraper = LPGARosterScraper()
+            elif league == 'DPWORLD':
+                from scrapers.dp_world.roster_scraper import DPWorldRosterScraper
+                scraper = DPWorldRosterScraper()
+            elif league == 'LIV':
+                from scrapers.liv.roster_scraper import LIVRosterScraper
+                scraper = LIVRosterScraper()
             else:
                 raise click.ClickException(f"Roster scraper not yet implemented for {league}")
 
@@ -246,6 +252,8 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
         ('KORNFERRY', 'Korn Ferry Tour'),
         ('CHAMPIONS', 'PGA Tour Champions'),
         ('LPGA', 'LPGA Tour'),
+        ('DPWORLD', 'DP World Tour'),
+        ('LIV', 'LIV Golf'),
     ]
 
     # College golf divisions (optional - scrape if flag set)
@@ -275,6 +283,7 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
         try:
             # Roster scrape
             click.echo(f"\n  Fetching {league_name} roster...")
+            roster_scraper = None
             if league_code == 'PGA':
                 from scrapers.pga_tour.roster_scraper import PGATourRosterScraper
                 roster_scraper = PGATourRosterScraper()
@@ -287,14 +296,21 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
             elif league_code == 'LPGA':
                 from scrapers.lpga.roster_scraper import LPGARosterScraper
                 roster_scraper = LPGARosterScraper()
+            elif league_code == 'DPWORLD':
+                from scrapers.dp_world.roster_scraper import DPWorldRosterScraper
+                roster_scraper = DPWorldRosterScraper()
+            elif league_code == 'LIV':
+                from scrapers.liv.roster_scraper import LIVRosterScraper
+                roster_scraper = LIVRosterScraper()
 
-            roster_result = roster_scraper.run()
+            roster_result = roster_scraper.run() if roster_scraper else {'records_created': 0, 'records_updated': 0}
             total_results['players_created'] += roster_result.get('records_created', 0)
             total_results['players_updated'] += roster_result.get('records_updated', 0)
             click.echo(f"    Created: {roster_result.get('records_created', 0)}, Updated: {roster_result.get('records_updated', 0)}")
 
             # Tournament scrape
             click.echo(f"\n  Fetching {league_name} tournaments for {year}...")
+            tournament_scraper = None
             if league_code == 'PGA':
                 from scrapers.pga_tour.tournament_scraper import PGATourTournamentScraper
                 tournament_scraper = PGATourTournamentScraper()
@@ -307,8 +323,11 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
             elif league_code == 'LPGA':
                 from scrapers.lpga.tournament_scraper import LPGATournamentScraper
                 tournament_scraper = LPGATournamentScraper()
+            elif league_code in ('DPWORLD', 'LIV'):
+                click.echo(f"    Tournament scraper not yet available for {league_name}")
+                tournament_scraper = None
 
-            tournament_result = tournament_scraper.run(year=year)
+            tournament_result = tournament_scraper.run(year=year) if tournament_scraper else {'records_created': 0, 'records_updated': 0}
             total_results['tournaments_created'] += tournament_result.get('records_created', 0)
             total_results['tournaments_updated'] += tournament_result.get('records_updated', 0)
             click.echo(f"    Created: {tournament_result.get('records_created', 0)}, Updated: {tournament_result.get('records_updated', 0)}")

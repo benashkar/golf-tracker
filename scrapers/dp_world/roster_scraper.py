@@ -1,47 +1,52 @@
 """
-LPGA Tour Roster Scraper
-=========================
+DP World Tour Roster Scraper
+=============================
 
-Scrapes the LPGA Tour player roster using ESPN API.
-Extracts biographical data including hometown, birthplace, and college.
+Scrapes the DP World Tour (formerly European Tour) player roster.
+Uses the European Tour API and ESPN for biographical data.
 """
 
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+import re
 
 from loguru import logger
 
 from scrapers.base_scraper import BaseScraper
 from database.models import Player, PlayerLeague, League
-from config.leagues import get_league_config
 
 
-class LPGARosterScraper(BaseScraper):
+class DPWorldRosterScraper(BaseScraper):
     """
-    Scrapes LPGA Tour player roster using ESPN API.
+    Scrapes the DP World Tour player roster.
 
-    Extracts full biographical data including:
-    - Birthplace (city, state, country)
-    - Hometown (city, state, country)
-    - Birth date
-    - College
+    Uses multiple sources:
+    1. DP World Tour official API
+    2. ESPN Golf API for biographical data
     """
 
-    league_code = 'LPGA'
+    league_code = 'DPWORLD'
     scrape_type = 'roster'
 
     def __init__(self):
-        config = get_league_config('LPGA')
-        base_url = config['base_url'] if config else 'https://www.lpga.com'
-        super().__init__('LPGA', base_url)
-        self.espn_api = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/lpga'
-        self.logger = logger.bind(scraper='LPGARosterScraper', league='LPGA')
+        super().__init__('DPWORLD', 'https://www.europeantour.com')
+
+        # API endpoints
+        self.dpworld_api = 'https://www.europeantour.com/api/players'
+        self.espn_api = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/eur'
+
+        self.logger = logger.bind(scraper='DPWorldRosterScraper', league='DPWORLD')
 
     def scrape(self, **kwargs) -> Dict[str, Any]:
-        """Scrape the LPGA Tour roster with full biographical data."""
-        self.logger.info('Starting LPGA Tour roster scrape')
+        """Scrape the DP World Tour roster."""
+        self.logger.info("Starting DP World Tour roster scrape")
 
-        players_data = self._fetch_players()
+        # Try ESPN API first (more reliable for player data)
+        players_data = self._fetch_players_espn()
+
+        if not players_data:
+            self.logger.warning("ESPN fetch failed, trying DP World API")
+            players_data = self._fetch_players_dpworld()
 
         if not players_data:
             return {
@@ -49,12 +54,12 @@ class LPGARosterScraper(BaseScraper):
                 'records_processed': 0,
                 'records_created': 0,
                 'records_updated': 0,
-                'errors': self._stats['errors']
+                'errors': ['Could not fetch player data']
             }
 
-        for p in players_data:
+        for player_data in players_data:
             try:
-                self._process_player(p)
+                self._process_player(player_data)
                 self._stats['records_processed'] += 1
             except Exception as e:
                 self.logger.error(f"Error processing player: {e}")
@@ -68,14 +73,14 @@ class LPGARosterScraper(BaseScraper):
             'errors': self._stats['errors']
         }
 
-    def _fetch_players(self) -> Optional[List[Dict]]:
-        """Fetch players from ESPN LPGA API with full biographical data."""
+    def _fetch_players_espn(self) -> Optional[List[Dict]]:
+        """Fetch players from ESPN's European Tour API."""
         players = []
         page = 1
 
         while True:
             url = f'{self.espn_api}/athletes?limit=100&page={page}'
-            self.logger.debug(f"Fetching ESPN LPGA page {page}")
+            self.logger.debug(f"Fetching ESPN page {page}: {url}")
 
             data = self.get_json(url)
             if not data or 'items' not in data:
@@ -86,13 +91,8 @@ class LPGARosterScraper(BaseScraper):
                 if ref:
                     player_data = self.get_json(ref)
                     if player_data:
-                        # Check if active
-                        status = player_data.get('status', {})
-                        if isinstance(status, dict) and status.get('type') == 'inactive':
-                            continue
-
-                        # Extract full bio data
-                        bio_data = self._extract_bio_data(player_data)
+                        # Get detailed bio data
+                        bio_data = self._extract_espn_bio(player_data)
                         if bio_data:
                             players.append(bio_data)
 
@@ -102,21 +102,18 @@ class LPGARosterScraper(BaseScraper):
             if page > 15:  # Safety limit
                 break
 
-        self.logger.info(f'Found {len(players)} LPGA players')
-        return players
+        self.logger.info(f"Found {len(players)} DP World Tour players from ESPN")
+        return players if players else None
 
-    def _extract_bio_data(self, data: Dict) -> Optional[Dict]:
-        """Extract full biographical data from ESPN player response."""
-        first_name = data.get('firstName', '').strip()
-        last_name = data.get('lastName', '').strip()
-
-        if not first_name or not last_name:
+    def _extract_espn_bio(self, data: Dict) -> Optional[Dict]:
+        """Extract biographical data from ESPN player response."""
+        if not data.get('firstName') or not data.get('lastName'):
             return None
 
         player_info = {
             'espn_id': str(data.get('id', '')),
-            'first_name': first_name,
-            'last_name': last_name,
+            'first_name': data.get('firstName', '').strip(),
+            'last_name': data.get('lastName', '').strip(),
             'birth_date': None,
             'birthplace_city': None,
             'birthplace_state': None,
@@ -129,57 +126,69 @@ class LPGARosterScraper(BaseScraper):
 
         # Parse birthplace
         birthplace = data.get('birthPlace', {})
-        if birthplace and isinstance(birthplace, dict):
+        if birthplace:
             player_info['birthplace_city'] = birthplace.get('city')
             player_info['birthplace_state'] = birthplace.get('state')
             player_info['birthplace_country'] = birthplace.get('country')
-
-            # Use birthplace as hometown if not specified elsewhere
-            if player_info['birthplace_city']:
+            # Use birthplace as hometown if not specified
+            if not player_info['hometown_city']:
                 player_info['hometown_city'] = birthplace.get('city')
                 player_info['hometown_state'] = birthplace.get('state')
                 player_info['hometown_country'] = birthplace.get('country')
 
         # Parse birth date
-        dob = data.get('dateOfBirth')
-        if dob:
+        if data.get('dateOfBirth'):
             try:
-                player_info['birth_date'] = datetime.strptime(dob[:10], '%Y-%m-%d').date()
-            except (ValueError, TypeError):
+                player_info['birth_date'] = datetime.strptime(
+                    data['dateOfBirth'][:10], '%Y-%m-%d'
+                ).date()
+            except:
                 pass
 
-        # Try to extract college from various fields
-        # ESPN sometimes has college in experience or statistics
+        # Parse college from experience or other fields
         experience = data.get('experience', {})
         if isinstance(experience, dict):
             college = experience.get('college')
             if college:
                 player_info['college_name'] = college
 
-        # Check for college in nested data
-        college_ref = data.get('college', {})
-        if isinstance(college_ref, dict):
-            if '$ref' in college_ref:
-                college_data = self.get_json(college_ref['$ref'])
-                if college_data:
-                    player_info['college_name'] = college_data.get('name') or college_data.get('displayName')
-            else:
-                player_info['college_name'] = college_ref.get('name') or college_ref.get('displayName')
-
-        # Look for displayName as college too
+        # Check for college in statistics or other nested data
         if not player_info['college_name']:
-            for key in ['collegeName', 'collegeAbbreviation']:
-                if data.get(key):
-                    player_info['college_name'] = data[key]
-                    break
+            for stat in data.get('statistics', []):
+                if 'college' in str(stat).lower():
+                    # Try to extract college name
+                    pass
 
         return player_info
 
+    def _fetch_players_dpworld(self) -> Optional[List[Dict]]:
+        """Fetch players from DP World Tour API."""
+        try:
+            # Try the rankings/players endpoint
+            url = 'https://www.europeantour.com/api/players/search?limit=500'
+            data = self.get_json(url)
+
+            if data and isinstance(data, list):
+                players = []
+                for p in data:
+                    players.append({
+                        'dpworld_id': str(p.get('playerId', '')),
+                        'first_name': p.get('firstName', '').strip(),
+                        'last_name': p.get('lastName', '').strip(),
+                        'hometown_country': p.get('country', ''),
+                    })
+                return players
+        except Exception as e:
+            self.logger.error(f"DP World API error: {e}")
+
+        return None
+
     def _process_player(self, player_data: Dict):
         """Process and save a player to the database."""
-        espn_id = player_data.get('espn_id', '')
         first_name = player_data.get('first_name', '').strip()
         last_name = player_data.get('last_name', '').strip()
+        espn_id = player_data.get('espn_id', '')
+        dpworld_id = player_data.get('dpworld_id', '')
 
         if not first_name or not last_name:
             return
@@ -189,9 +198,10 @@ class LPGARosterScraper(BaseScraper):
             player = None
 
             if espn_id:
-                player = session.query(Player).filter_by(lpga_id=espn_id).first()
-                if not player:
-                    player = session.query(Player).filter_by(espn_id=espn_id).first()
+                player = session.query(Player).filter_by(espn_id=espn_id).first()
+
+            if not player and dpworld_id:
+                player = session.query(Player).filter_by(dpworld_id=dpworld_id).first()
 
             if not player:
                 player = session.query(Player).filter_by(
@@ -204,17 +214,17 @@ class LPGARosterScraper(BaseScraper):
             else:
                 player = self._create_player(session, player_data)
                 self._stats['records_created'] += 1
-                self.logger.info(f'Created player: {first_name} {last_name}')
+                self.logger.info(f"Created player: {first_name} {last_name}")
 
-            self._ensure_league(session, player)
+            self._ensure_league_association(session, player)
 
     def _create_player(self, session, player_data: Dict) -> Player:
-        """Create a new player with full biographical data."""
+        """Create a new player."""
         player = Player(
             first_name=player_data.get('first_name', '').strip(),
             last_name=player_data.get('last_name', '').strip(),
-            lpga_id=player_data.get('espn_id'),
             espn_id=player_data.get('espn_id'),
+            dpworld_id=player_data.get('dpworld_id'),
             birth_date=player_data.get('birth_date'),
             birthplace_city=player_data.get('birthplace_city'),
             birthplace_state=player_data.get('birthplace_state'),
@@ -229,42 +239,41 @@ class LPGARosterScraper(BaseScraper):
         return player
 
     def _update_player(self, player: Player, player_data: Dict):
-        """Update existing player with new biographical data."""
-        espn_id = player_data.get('espn_id')
-
-        if espn_id and not player.lpga_id:
-            player.lpga_id = espn_id
-        if espn_id and not player.espn_id:
-            player.espn_id = espn_id
-
-        # Update biographical data if not already set
+        """Update existing player with new data."""
+        if player_data.get('espn_id') and not player.espn_id:
+            player.espn_id = player_data['espn_id']
+        if player_data.get('dpworld_id') and not player.dpworld_id:
+            player.dpworld_id = player_data['dpworld_id']
         if player_data.get('birth_date') and not player.birth_date:
             player.birth_date = player_data['birth_date']
-
         if player_data.get('birthplace_city') and not player.birthplace_city:
             player.birthplace_city = player_data['birthplace_city']
-        if player_data.get('birthplace_state') and not player.birthplace_state:
-            player.birthplace_state = player_data['birthplace_state']
         if player_data.get('birthplace_country') and not player.birthplace_country:
             player.birthplace_country = player_data['birthplace_country']
-
         if player_data.get('hometown_city') and not player.hometown_city:
             player.hometown_city = player_data['hometown_city']
         if player_data.get('hometown_state') and not player.hometown_state:
             player.hometown_state = player_data['hometown_state']
         if player_data.get('hometown_country') and not player.hometown_country:
             player.hometown_country = player_data['hometown_country']
-
         if player_data.get('college_name') and not player.college_name:
             player.college_name = player_data['college_name']
 
         player.updated_at = datetime.utcnow()
 
-    def _ensure_league(self, session, player: Player):
-        """Ensure player is associated with LPGA league."""
-        league = session.query(League).filter_by(league_code='LPGA').first()
+    def _ensure_league_association(self, session, player: Player):
+        """Ensure player is associated with DP World Tour."""
+        league = session.query(League).filter_by(league_code='DPWORLD').first()
         if not league:
-            return
+            # Create the league if it doesn't exist
+            league = League(
+                league_code='DPWORLD',
+                league_name='DP World Tour',
+                website_url='https://www.europeantour.com',
+                is_active=True
+            )
+            session.add(league)
+            session.flush()
 
         existing = session.query(PlayerLeague).filter_by(
             player_id=player.player_id, league_id=league.league_id
@@ -274,11 +283,11 @@ class LPGARosterScraper(BaseScraper):
             session.add(PlayerLeague(
                 player_id=player.player_id,
                 league_id=league.league_id,
-                league_player_id=player.lpga_id,
+                league_player_id=player.dpworld_id or player.espn_id,
                 is_current_member=True
             ))
 
 
-def scrape_lpga_roster():
-    """Convenience function to scrape LPGA roster."""
-    return LPGARosterScraper().run()
+def scrape_dpworld_roster() -> Dict[str, Any]:
+    """Convenience function to scrape DP World Tour roster."""
+    return DPWorldRosterScraper().run()

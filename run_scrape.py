@@ -30,21 +30,29 @@ def run_migrations():
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS korn_ferry_id VARCHAR(50)",
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS champions_id VARCHAR(50)",
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS lpga_id VARCHAR(50)",
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS dpworld_id VARCHAR(50)",
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS liv_id VARCHAR(50)",
 
         # Player ID indexes
         "CREATE INDEX IF NOT EXISTS idx_korn_ferry_id ON players(korn_ferry_id)",
         "CREATE INDEX IF NOT EXISTS idx_champions_id ON players(champions_id)",
         "CREATE INDEX IF NOT EXISTS idx_lpga_id ON players(lpga_id)",
+        "CREATE INDEX IF NOT EXISTS idx_dpworld_id ON players(dpworld_id)",
+        "CREATE INDEX IF NOT EXISTS idx_liv_id ON players(liv_id)",
 
         # Tournament ID columns
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS korn_ferry_tournament_id VARCHAR(50)",
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS champions_tournament_id VARCHAR(50)",
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS lpga_tournament_id VARCHAR(50)",
+        "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS dpworld_tournament_id VARCHAR(50)",
+        "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS liv_tournament_id VARCHAR(50)",
 
         # Tournament ID indexes
         "CREATE INDEX IF NOT EXISTS idx_korn_ferry_tournament_id ON tournaments(korn_ferry_tournament_id)",
         "CREATE INDEX IF NOT EXISTS idx_champions_tournament_id ON tournaments(champions_tournament_id)",
         "CREATE INDEX IF NOT EXISTS idx_lpga_tournament_id ON tournaments(lpga_tournament_id)",
+        "CREATE INDEX IF NOT EXISTS idx_dpworld_tournament_id ON tournaments(dpworld_tournament_id)",
+        "CREATE INDEX IF NOT EXISTS idx_liv_tournament_id ON tournaments(liv_tournament_id)",
 
         # Bio source tracking columns
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS bio_source_url VARCHAR(500)",

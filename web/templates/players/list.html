@@ -23,10 +23,21 @@
                 <label class="form-label">League</label>
                 <select class="form-select" name="league">
                     <option value="">All Leagues</option>
-                    <option value="PGA" {% if league == 'PGA' %}selected{% endif %}>PGA Tour</option>
-                    <option value="LPGA" {% if league == 'LPGA' %}selected{% endif %}>LPGA Tour</option>
-                    <option value="DPWORLD" {% if league == 'DPWORLD' %}selected{% endif %}>DP World Tour</option>
-                    <option value="LIV" {% if league == 'LIV' %}selected{% endif %}>LIV Golf</option>
+                    <optgroup label="Professional Tours">
+                        <option value="PGA" {% if league == 'PGA' %}selected{% endif %}>PGA Tour</option>
+                        <option value="LPGA" {% if league == 'LPGA' %}selected{% endif %}>LPGA Tour</option>
+                        <option value="KORNFERRY" {% if league == 'KORNFERRY' %}selected{% endif %}>Korn Ferry Tour</option>
+                        <option value="CHAMPIONS" {% if league == 'CHAMPIONS' %}selected{% endif %}>Champions Tour</option>
+                        <option value="DPWORLD" {% if league == 'DPWORLD' %}selected{% endif %}>DP World Tour</option>
+                        <option value="LIV" {% if league == 'LIV' %}selected{% endif %}>LIV Golf</option>
+                    </optgroup>
+                    <optgroup label="College Golf">
+                        <option value="NCAA_D1_MENS" {% if league == 'NCAA_D1_MENS' %}selected{% endif %}>NCAA D1 Men's</option>
+                        <option value="NCAA_D1_WOMENS" {% if league == 'NCAA_D1_WOMENS' %}selected{% endif %}>NCAA D1 Women's</option>
+                    </optgroup>
+                    <optgroup label="Amateur">
+                        <option value="AJGA" {% if league == 'AJGA' %}selected{% endif %}>AJGA (Junior)</option>
+                    </optgroup>
                 </select>
             </div>
             <div class="col-md-2">

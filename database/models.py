@@ -179,6 +179,8 @@ class Player(Base):
     korn_ferry_id = Column(String(50), index=True)
     champions_id = Column(String(50), index=True)
     lpga_id = Column(String(50), index=True)
+    dpworld_id = Column(String(50), index=True)  # DP World Tour (European Tour)
+    liv_id = Column(String(50), index=True)  # LIV Golf
     espn_id = Column(String(50))
     wikipedia_url = Column(String(500))
 
