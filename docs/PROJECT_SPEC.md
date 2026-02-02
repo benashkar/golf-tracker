@@ -11,7 +11,7 @@ Enable writing stories like:
 ### Key Features
 1. **Player Roster Database** - Collect player info including high school, graduation year, hometown, and college
 2. **Tournament Results** - Scrape and store tournament results with daily scores
-3. **Multi-League Support** - PGA Tour, Korn Ferry Tour, Champions Tour, LPGA, DP World Tour, LIV Golf, College Golf, PGA Tour Americas (planned), USGA Amateur (planned)
+3. **Multi-League Support** - PGA Tour, Korn Ferry Tour, Champions Tour, LPGA, DP World Tour, LIV Golf, PGA Tour Americas, USGA Amateur (planned)
 4. **Web Dashboard** - View player history by event or event results by player
 5. **Daily Automation** - GitHub Actions for scheduled scraping
 6. **MySQL Database** - Hosted on Render for all leagues in one database
@@ -28,9 +28,8 @@ Enable writing stories like:
 - **Data Sources**:
   - PGA Tour GraphQL API (PGA Tour, Korn Ferry, Champions, PGA Tour Americas)
   - ESPN API (LPGA, DP World Tour)
-  - LIV Golf hardcoded schedule (no public API available)
-  - Golfstat (College Golf)
-  - Multi-source bio enrichment cascade: DuckDuckGo → Wikipedia → ESPN → Grokepedia
+  - LIV Golf hardcoded schedule (no public API)
+  - **Bio Enrichment Multi-Source Cascade**: DuckDuckGo → Wikipedia → ESPN → Grokepedia
 - **Deployment**: Render (cron job + PostgreSQL database)
 - **CI/CD**: GitHub Actions + Render auto-deploy on push
 
@@ -495,14 +494,14 @@ golf-tracker/
 │   ├── dp_world/                       # ✅ IMPLEMENTED - DP World Tour
 │   │   ├── __init__.py
 │   │   ├── roster_scraper.py           # Uses ESPN API
-│   │   └── tournament_scraper.py       # Uses ESPN API with round-by-round scores
+│   │   └── tournament_scraper.py       # Uses ESPN API with round scores
 │   │
 │   ├── liv/                            # ✅ IMPLEMENTED - LIV Golf
 │   │   ├── __init__.py
-│   │   ├── roster_scraper.py           # Hardcoded player data (no public API)
+│   │   ├── roster_scraper.py           # Hardcoded player data (no API)
 │   │   └── tournament_scraper.py       # Hardcoded schedule + results
 │   │
-│   ├── pga_americas/                   # 🚧 IN PROGRESS - PGA Tour Americas
+│   ├── pga_americas/                   # ✅ IMPLEMENTED - PGA Tour Americas
 │   │   ├── __init__.py
 │   │   ├── roster_scraper.py           # Uses PGA GraphQL API (tour code: Y)
 │   │   └── tournament_scraper.py       # Uses PGA GraphQL API
@@ -1598,11 +1597,15 @@ Documentation explaining:
    - Write logs to both console and file
 
 4. **Data Sources Priority**
-   For player biographical information:
-   1. First try the official tour website (pgatour.com)
-   2. Then try Wikipedia
-   3. Then try ESPN
-   4. Store the source of each piece of data
+   For player biographical information (high school, hometown, college):
+   1. **DuckDuckGo Search** (FIRST - most effective, ~60% hit rate)
+      - Search for "{player name} high school golf"
+      - Search for "{player name} golfer hometown"
+      - Parse search result snippets for patterns
+   2. **Wikipedia** (structured infobox data)
+   3. **ESPN Player Pages** (profile sections)
+   4. **Grokepedia** (AI-powered fallback)
+   5. Store the source of each piece of data in `bio_source_name` column
 
 5. **Respect Rate Limits**
    - Wait 2 seconds between requests by default
@@ -1656,18 +1659,18 @@ Documentation explaining:
 **DP World Tour** ✅ IMPLEMENTED
 - **API**: ESPN API (`site.web.api.espn.com/apis/site/v2/sports/golf/eur/scoreboard`)
 - **Features**: Live scores, round-by-round data, player profiles
-- **Player ID field**: `dp_world_id`
-- **Tournament ID field**: `dp_world_tournament_id`
+- **Player ID field**: `dpworld_id`
+- **Tournament ID field**: `dpworld_tournament_id`
 - **Note**: Formerly European Tour, now DP World Tour
 
 **LIV Golf** ✅ IMPLEMENTED
-- **API**: No public API available - uses hardcoded schedule data
+- **API**: No public API - uses hardcoded schedule data
 - **Features**: Tournament schedule, player roster (known LIV players)
 - **Player ID field**: `liv_id`
 - **Tournament ID field**: `liv_tournament_id`
 - **Note**: 54-hole (3 round) format, team-based structure
 
-**PGA Tour Americas** 🚧 IN PROGRESS
+**PGA Tour Americas** ✅ IMPLEMENTED
 - **API**: PGA Tour GraphQL API (same as PGA Tour)
 - **Tour Code**: `Y`
 - **Features**: Live scores, round-by-round data
@@ -1769,7 +1772,7 @@ Build the golf-tracker project following the GOLF_TRACKER_PROJECT.md specificati
 | LPGA Tour | `LPGA` | ESPN API | N/A | ✅ | ✅ |
 | DP World Tour | `DPWORLD` | ESPN API | N/A | ✅ | ✅ |
 | LIV Golf | `LIV` | Hardcoded | N/A | ⚠️ | ✅ |
-| PGA Tour Americas | `PGAAMERICAS` | PGA GraphQL | `Y` | 🚧 | 🚧 |
+| PGA Tour Americas | `PGAAMERICAS` | PGA GraphQL | `Y` | ✅ | ✅ |
 
 ### API Details
 
@@ -1804,26 +1807,55 @@ DP World Athletes: https://sports.core.api.espn.com/v2/sports/golf/leagues/eur/a
 No authentication required.
 ```
 
-#### Bio Enrichment Sources (Multi-Source Cascade)
+#### DuckDuckGo Bio Enrichment (RECOMMENDED)
 ```
-The bio enrichment system tries multiple sources in order until data is found:
+The most effective method for finding player biographical data (high school, hometown, college).
 
-1. DuckDuckGo Search (first, most effective)
-   - URL: https://html.duckduckgo.com/html/
-   - Searches: "{player name} high school golf", "{player name} hometown"
-   - Rate limited: 2 seconds between requests
-   - No API key required
+How it works:
+1. Search DuckDuckGo HTML for "{player name} high school golf"
+2. Parse search result snippets for patterns like:
+   - "attended Highland Park High School"
+   - "graduated from Highland Park High School"
+   - "from Dallas, Texas"
+   - "played golf at University of Texas"
+3. Extract matching information using regex patterns
 
-2. Wikipedia
-   - URL: https://en.wikipedia.org/wiki/{player_name}
-   - Parses infobox for biographical data
+URL: https://html.duckduckgo.com/html/
+Rate Limit: 2 seconds between requests
+No API key required
 
-3. ESPN Player Pages
-   - URL: https://www.espn.com/golf/player/_/id/{espn_id}
-   - Parses player profile section
+Why DuckDuckGo works well:
+- Search results often contain bio info directly in snippets
+- No API key or authentication needed
+- Can search for specific phrases like "high school golf"
+- Works for players where Wikipedia doesn't have a page
 
-4. Grokepedia (fallback)
-   - AI-powered Wikipedia alternative
+Example regex patterns used:
+  r'attended\s+([A-Z][A-Za-z\'\s]+)\s+High\s+School'
+  r'from\s+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)'
+  r'played\s+(?:golf\s+)?(?:at|for)\s+([A-Z][A-Za-z\s]+University)'
+```
+
+#### Multi-Source Bio Enrichment Cascade
+```
+The bio enrichment system tries multiple sources in order until data is found.
+This maximizes the hit rate for player biographical information.
+
+Order of sources:
+1. DuckDuckGo Search (first, most effective - ~60% hit rate)
+2. Wikipedia (structured data in infoboxes - ~40% hit rate)
+3. ESPN Player Pages (profile sections - ~30% hit rate)
+4. Grokepedia (AI-powered fallback - ~20% hit rate)
+
+To run bio enrichment:
+  python -m cli.commands enrich-bios --limit 100
+
+The scrape-all command automatically runs bio enrichment after scraping leagues.
+
+Source tracking:
+- bio_source_name column stores which source found the data
+- bio_source_url column stores the URL where data was found
+- bio_last_updated column tracks when bio was last enriched
 ```
 
 ### How to Add a New League
