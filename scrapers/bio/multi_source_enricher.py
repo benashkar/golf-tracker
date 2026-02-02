@@ -461,25 +461,47 @@ class MultiSourceBioEnricher(BaseScraper):
                     if len(parts) > 1:
                         data['hometown_state'] = parts[1]
 
-        # Parse text for high school
-        for para in soup.find_all('p')[:10]:
-            text = para.get_text()
+        # Parse text for high school - check more paragraphs and use multiple patterns
+        all_text = ' '.join([p.get_text() for p in soup.find_all('p')[:20]])
 
-            # High school patterns
-            hs_match = re.search(r'([A-Z][A-Za-z\'\s]+)\s+High\s+School(?:\s+in\s+([A-Z][A-Za-z\s]+),?\s*([A-Z]{2})?)?', text)
-            if hs_match and 'high_school_name' not in data:
-                data['high_school_name'] = f"{hs_match.group(1).strip()} High School"
-                if hs_match.group(2):
-                    data['high_school_city'] = hs_match.group(2).strip()
-                if hs_match.group(3):
-                    data['high_school_state'] = hs_match.group(3).strip()
+        # High school patterns - try multiple formats
+        hs_patterns = [
+            # "attended Highland Park High School"
+            r'attended\s+([A-Z][A-Za-z\'\s-]+)\s+High\s+School',
+            # "Highland Park High School in Dallas"
+            r'([A-Z][A-Za-z\'\s-]+)\s+High\s+School\s+in\s+([A-Z][A-Za-z\s]+)',
+            # "at Highland Park High School"
+            r'at\s+([A-Z][A-Za-z\'\s-]+)\s+High\s+School',
+            # "played ... at Highland Park High School" or "Highland Park High School"
+            r'([A-Z][A-Za-z\'\s-]+)\s+High\s+School',
+        ]
 
-            # Hometown patterns
-            if 'hometown_city' not in data:
-                hometown_match = re.search(r'(?:from|raised in|grew up in)\s+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)', text)
+        if 'high_school_name' not in data:
+            for pattern in hs_patterns:
+                hs_match = re.search(pattern, all_text, re.IGNORECASE)
+                if hs_match:
+                    school_name = hs_match.group(1).strip()
+                    # Clean up common false positives
+                    if school_name.lower() not in ['the', 'a', 'an', 'his', 'her', 'their', 'junior']:
+                        data['high_school_name'] = f"{school_name} High School"
+                        # Try to find location if pattern has it
+                        if hs_match.lastindex and hs_match.lastindex >= 2:
+                            data['high_school_city'] = hs_match.group(2).strip()
+                        break
+
+        # Hometown patterns - expanded
+        if 'hometown_city' not in data:
+            hometown_patterns = [
+                r'(?:from|raised in|grew up in|native of|hails from)\s+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)',
+                r'moved\s+to\s+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)',
+                r'lives?\s+in\s+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)',
+            ]
+            for pattern in hometown_patterns:
+                hometown_match = re.search(pattern, all_text)
                 if hometown_match:
                     data['hometown_city'] = hometown_match.group(1).strip()
                     data['hometown_state'] = hometown_match.group(2).strip()
+                    break
 
         return data
 
