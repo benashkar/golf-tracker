@@ -8,6 +8,8 @@ Use this as the cron job start command:
     python run_scrape.py --year 2026
 
 This ensures the database schema is always up to date before scraping.
+
+Version: 1.1 - Added DP World Tour support
 """
 
 import os
