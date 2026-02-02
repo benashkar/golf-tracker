@@ -413,9 +413,24 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
                 total_results['errors'].append(error_msg)
                 click.echo(f"  ERROR: {e}")
 
+    # Bio enrichment from college rosters (best source for high school data)
+    click.echo(f"\n{'='*50}")
+    click.echo("Enriching player bios from college golf rosters...")
+    click.echo('='*50)
+
+    try:
+        from scrapers.bio.college_roster_enricher import CollegeRosterBioEnricher
+        college_enricher = CollegeRosterBioEnricher()
+        college_result = college_enricher.run()
+        click.echo(f"  Colleges scraped: {college_result.get('colleges_scraped', 0)}")
+        click.echo(f"  Players enriched: {college_result.get('enriched', 0)}")
+    except Exception as e:
+        total_results['errors'].append(f"College roster enrichment: {str(e)}")
+        click.echo(f"  ERROR: {e}")
+
     # Bio enrichment from multiple sources (Wikipedia, ESPN, Grokepedia)
     click.echo(f"\n{'='*50}")
-    click.echo("Enriching player bios from multiple sources...")
+    click.echo("Enriching player bios from Wikipedia/ESPN...")
     click.echo('='*50)
 
     try:
