@@ -421,9 +421,10 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
     try:
         from scrapers.bio.multi_source_enricher import MultiSourceBioEnricher
         enricher = MultiSourceBioEnricher()
-        bio_result = enricher.run(limit=100, force=False)
+        bio_result = enricher.run(limit=500, force=False)  # Increased from 100 to cover more players
         click.echo(f"  Enriched: {bio_result.get('enriched', 0)} players")
-        click.echo(f"  Sources: Wikipedia={bio_result.get('sources_used', {}).get('wikipedia', 0)}, "
+        click.echo(f"  Sources: DuckDuckGo={bio_result.get('sources_used', {}).get('duckduckgo', 0)}, "
+                   f"Wikipedia={bio_result.get('sources_used', {}).get('wikipedia', 0)}, "
                    f"ESPN={bio_result.get('sources_used', {}).get('espn', 0)}, "
                    f"Grokepedia={bio_result.get('sources_used', {}).get('grokepedia', 0)}")
     except Exception as e:
