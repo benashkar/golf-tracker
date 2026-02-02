@@ -80,20 +80,35 @@ class DPWorldTournamentScraper(BaseScraper):
         """Fetch DP World tournament schedule from ESPN."""
         data = self.get_json(self.espn_scoreboard)
         if not data:
+            self.logger.warning("No data from ESPN scoreboard API")
             return None
 
         tournaments = []
+
+        # Check leagues for calendar data
         for league in data.get('leagues', []):
-            # ESPN uses 'eur' for European/DP World Tour
-            if league.get('abbreviation') in ['EUR', 'EURO']:
+            # ESPN uses various identifiers: 'EUR', 'EURO', 'DPWT', 'eur', or ID 7002
+            abbr = league.get('abbreviation', '').upper()
+            league_id = str(league.get('id', ''))
+            league_name = league.get('name', '').lower()
+
+            is_dpworld = (
+                abbr in ['EUR', 'EURO', 'DPWT', 'DPW'] or
+                league_id == '7002' or
+                'dp world' in league_name or
+                'european' in league_name
+            )
+
+            if is_dpworld:
+                self.logger.info(f"Found DP World Tour league: {league.get('name')} (abbr={abbr}, id={league_id})")
                 for event in league.get('calendar', []):
                     start_str = event.get('startDate', '')
                     end_str = event.get('endDate', '')
                     start_date = self._parse_date(start_str)
                     end_date = self._parse_date(end_str)
 
-                    # Filter by year
-                    if start_date and start_date.year == year:
+                    # Filter by year (DP World season spans Nov-Nov)
+                    if start_date and (start_date.year == year or (start_date.year == year - 1 and start_date.month >= 11)):
                         today = date.today()
                         if end_date and today > end_date:
                             status = 'completed'
@@ -109,6 +124,38 @@ class DPWorldTournamentScraper(BaseScraper):
                             'end_date': end_date,
                             'status': status,
                         })
+
+        # Also check events array directly (for current/recent tournaments)
+        for event in data.get('events', []):
+            event_name = event.get('name', '')
+            if not event_name:
+                continue
+
+            # Check if we already have this tournament
+            if any(t['name'] == event_name for t in tournaments):
+                continue
+
+            start_str = event.get('date', '')
+            end_str = event.get('endDate', '')
+            start_date = self._parse_date(start_str)
+            end_date = self._parse_date(end_str)
+
+            if start_date and (start_date.year == year or (start_date.year == year - 1 and start_date.month >= 11)):
+                event_status = event.get('status', {}).get('type', {}).get('name', '')
+                if event_status == 'STATUS_FINAL':
+                    status = 'completed'
+                elif event_status == 'STATUS_IN_PROGRESS':
+                    status = 'in_progress'
+                else:
+                    status = 'scheduled'
+
+                tournaments.append({
+                    'espn_id': event.get('id', ''),
+                    'name': event_name,
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'status': status,
+                })
 
         self.logger.info(f'Found {len(tournaments)} DP World tournaments for {year}')
         return tournaments
