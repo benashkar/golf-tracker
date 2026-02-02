@@ -92,6 +92,12 @@ def scrape(league: str, scrape_type: str, year: int):
             elif league == 'LPGA':
                 from scrapers.lpga.tournament_scraper import LPGATournamentScraper
                 scraper = LPGATournamentScraper()
+            elif league == 'DPWORLD':
+                from scrapers.dp_world.tournament_scraper import DPWorldTournamentScraper
+                scraper = DPWorldTournamentScraper()
+            elif league == 'LIV':
+                from scrapers.liv.tournament_scraper import LIVTournamentScraper
+                scraper = LIVTournamentScraper()
             else:
                 raise click.ClickException(f"Tournament scraper not yet implemented for {league}")
 
@@ -323,9 +329,12 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
             elif league_code == 'LPGA':
                 from scrapers.lpga.tournament_scraper import LPGATournamentScraper
                 tournament_scraper = LPGATournamentScraper()
-            elif league_code in ('DPWORLD', 'LIV'):
-                click.echo(f"    Tournament scraper not yet available for {league_name}")
-                tournament_scraper = None
+            elif league_code == 'DPWORLD':
+                from scrapers.dp_world.tournament_scraper import DPWorldTournamentScraper
+                tournament_scraper = DPWorldTournamentScraper()
+            elif league_code == 'LIV':
+                from scrapers.liv.tournament_scraper import LIVTournamentScraper
+                tournament_scraper = LIVTournamentScraper()
 
             tournament_result = tournament_scraper.run(year=year) if tournament_scraper else {'records_created': 0, 'records_updated': 0}
             total_results['tournaments_created'] += tournament_result.get('records_created', 0)
