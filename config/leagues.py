@@ -189,6 +189,68 @@ LEAGUES: Dict[str, Dict[str, Any]] = {
             'delay_seconds': 2,
         },
     },
+
+    # ==========================================================================
+    # PGA TOUR AMERICAS
+    # ==========================================================================
+    # Developmental tour formed from merger of PGA Tour Canada and
+    # PGA Tour Latinoamerica in 2024
+    'PGAAMERICAS': {
+        'league_code': 'PGAAMERICAS',
+        'league_name': 'PGA Tour Americas',
+        'base_url': 'https://www.pgatour.com/pga-tour-americas',
+        'is_active': True,
+
+        'urls': {
+            'players': 'https://www.pgatour.com/pga-tour-americas/players',
+            'schedule': 'https://www.pgatour.com/pga-tour-americas/schedule',
+        },
+
+        # Uses PGA Tour GraphQL API with tour code Y
+        'api': {
+            'base': 'https://orchestrator.pgatour.com/graphql',
+            'api_key': 'da2-gsrx5bibzbb4njvhl7t37wqyl4',
+            'tour_code': 'Y',
+        },
+
+        'scraping': {
+            'requires_selenium': False,
+            'delay_seconds': 2,
+        },
+    },
+
+    # ==========================================================================
+    # USGA AMATEUR EVENTS
+    # ==========================================================================
+    # Amateur golf events including U.S. Amateur, U.S. Women's Amateur, etc.
+    'USGA': {
+        'league_code': 'USGA',
+        'league_name': 'USGA Amateur Events',
+        'base_url': 'https://www.usga.org',
+        'is_active': True,
+
+        'urls': {
+            'championships': 'https://championships.usga.org/',
+            'schedule': 'https://www.usga.org/championships.html',
+        },
+
+        'scraping': {
+            'requires_selenium': True,
+            'delay_seconds': 3,
+        },
+
+        'special_format': {
+            'is_amateur': True,
+            'events': [
+                'U.S. Amateur',
+                'U.S. Women\'s Amateur',
+                'U.S. Junior Amateur',
+                'U.S. Girls\' Junior',
+                'U.S. Mid-Amateur',
+                'U.S. Senior Amateur',
+            ],
+        },
+    },
 }
 
 

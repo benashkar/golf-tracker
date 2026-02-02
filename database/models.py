@@ -181,6 +181,8 @@ class Player(Base):
     lpga_id = Column(String(50), index=True)
     dpworld_id = Column(String(50), index=True)  # DP World Tour (European Tour)
     liv_id = Column(String(50), index=True)  # LIV Golf
+    pga_americas_id = Column(String(50), index=True)  # PGA Tour Americas
+    usga_id = Column(String(50), index=True)  # USGA Amateur Events
     espn_id = Column(String(50))
     wikipedia_url = Column(String(500))
 
@@ -401,6 +403,8 @@ class Tournament(Base):
     champions_tournament_id = Column(String(50))
     lpga_tournament_id = Column(String(50))
     espn_tournament_id = Column(String(50))
+    pga_americas_tournament_id = Column(String(50))  # PGA Tour Americas
+    usga_tournament_id = Column(String(50))  # USGA Amateur Events
 
     # ==========================================================================
     # Metadata

@@ -38,7 +38,7 @@ def cli():
 
 
 @cli.command()
-@click.option('--league', required=True, help='League code (PGA, DPWORLD, KORNFERRY, LPGA, LIV, CHAMPIONS)')
+@click.option('--league', required=True, help='League code (PGA, DPWORLD, KORNFERRY, LPGA, LIV, CHAMPIONS, PGAAMERICAS)')
 @click.option('--type', 'scrape_type', required=True,
               type=click.Choice(['roster', 'tournaments', 'results']),
               help='Type of data to scrape')
@@ -74,6 +74,9 @@ def scrape(league: str, scrape_type: str, year: int):
             elif league == 'LIV':
                 from scrapers.liv.roster_scraper import LIVRosterScraper
                 scraper = LIVRosterScraper()
+            elif league == 'PGAAMERICAS':
+                from scrapers.pga_americas.roster_scraper import PGAAmericasRosterScraper
+                scraper = PGAAmericasRosterScraper()
             else:
                 raise click.ClickException(f"Roster scraper not yet implemented for {league}")
 
@@ -98,6 +101,9 @@ def scrape(league: str, scrape_type: str, year: int):
             elif league == 'LIV':
                 from scrapers.liv.tournament_scraper import LIVTournamentScraper
                 scraper = LIVTournamentScraper()
+            elif league == 'PGAAMERICAS':
+                from scrapers.pga_americas.tournament_scraper import PGAAmericasTournamentScraper
+                scraper = PGAAmericasTournamentScraper()
             else:
                 raise click.ClickException(f"Tournament scraper not yet implemented for {league}")
 
@@ -260,6 +266,7 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
         ('LPGA', 'LPGA Tour'),
         ('DPWORLD', 'DP World Tour'),
         ('LIV', 'LIV Golf'),
+        ('PGAAMERICAS', 'PGA Tour Americas'),
     ]
 
     # College golf divisions (optional - scrape if flag set)
@@ -308,6 +315,9 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
             elif league_code == 'LIV':
                 from scrapers.liv.roster_scraper import LIVRosterScraper
                 roster_scraper = LIVRosterScraper()
+            elif league_code == 'PGAAMERICAS':
+                from scrapers.pga_americas.roster_scraper import PGAAmericasRosterScraper
+                roster_scraper = PGAAmericasRosterScraper()
 
             roster_result = roster_scraper.run() if roster_scraper else {'records_created': 0, 'records_updated': 0}
             total_results['players_created'] += roster_result.get('records_created', 0)
@@ -335,6 +345,9 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
             elif league_code == 'LIV':
                 from scrapers.liv.tournament_scraper import LIVTournamentScraper
                 tournament_scraper = LIVTournamentScraper()
+            elif league_code == 'PGAAMERICAS':
+                from scrapers.pga_americas.tournament_scraper import PGAAmericasTournamentScraper
+                tournament_scraper = PGAAmericasTournamentScraper()
 
             tournament_result = tournament_scraper.run(year=year) if tournament_scraper else {'records_created': 0, 'records_updated': 0}
             total_results['tournaments_created'] += tournament_result.get('records_created', 0)

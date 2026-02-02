@@ -32,6 +32,8 @@ def run_migrations():
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS lpga_id VARCHAR(50)",
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS dpworld_id VARCHAR(50)",
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS liv_id VARCHAR(50)",
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS pga_americas_id VARCHAR(50)",
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS usga_id VARCHAR(50)",
 
         # Player ID indexes
         "CREATE INDEX IF NOT EXISTS idx_korn_ferry_id ON players(korn_ferry_id)",
@@ -39,6 +41,8 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_lpga_id ON players(lpga_id)",
         "CREATE INDEX IF NOT EXISTS idx_dpworld_id ON players(dpworld_id)",
         "CREATE INDEX IF NOT EXISTS idx_liv_id ON players(liv_id)",
+        "CREATE INDEX IF NOT EXISTS idx_pga_americas_id ON players(pga_americas_id)",
+        "CREATE INDEX IF NOT EXISTS idx_usga_id ON players(usga_id)",
 
         # Tournament ID columns
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS korn_ferry_tournament_id VARCHAR(50)",
@@ -46,6 +50,8 @@ def run_migrations():
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS lpga_tournament_id VARCHAR(50)",
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS dpworld_tournament_id VARCHAR(50)",
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS liv_tournament_id VARCHAR(50)",
+        "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS pga_americas_tournament_id VARCHAR(50)",
+        "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS usga_tournament_id VARCHAR(50)",
 
         # Tournament ID indexes
         "CREATE INDEX IF NOT EXISTS idx_korn_ferry_tournament_id ON tournaments(korn_ferry_tournament_id)",
@@ -53,6 +59,8 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_lpga_tournament_id ON tournaments(lpga_tournament_id)",
         "CREATE INDEX IF NOT EXISTS idx_dpworld_tournament_id ON tournaments(dpworld_tournament_id)",
         "CREATE INDEX IF NOT EXISTS idx_liv_tournament_id ON tournaments(liv_tournament_id)",
+        "CREATE INDEX IF NOT EXISTS idx_pga_americas_tournament_id ON tournaments(pga_americas_tournament_id)",
+        "CREATE INDEX IF NOT EXISTS idx_usga_tournament_id ON tournaments(usga_tournament_id)",
 
         # Bio source tracking columns
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS bio_source_url VARCHAR(500)",
