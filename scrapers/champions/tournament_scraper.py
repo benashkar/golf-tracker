@@ -164,7 +164,13 @@ class ChampionsTournamentScraper(BasePGAEcosystemScraper):
         self.logger.info(f"Found {len(players)} player results for {tournament_name} (status: {tournament_status})")
 
         with self.db.get_session() as session:
-            tournament = session.query(Tournament).get(tournament_id)
+            tournament = session.query(Tournament).filter_by(
+                tournament_id=tournament_id
+            ).first()
+
+            if not tournament:
+                self.logger.warning(f"Tournament {tournament_id} not found in database")
+                return
 
             # Update tournament status
             if tournament_status == 'IN_PROGRESS':

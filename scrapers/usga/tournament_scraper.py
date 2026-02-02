@@ -326,7 +326,9 @@ class USGATournamentScraper(BaseScraper):
     def _save_known_results(self, tournament_id: int, results: Dict):
         """Save known championship results."""
         with self.db.get_session() as session:
-            tournament = session.query(Tournament).get(tournament_id)
+            tournament = session.query(Tournament).filter_by(
+                tournament_id=tournament_id
+            ).first()
             if not tournament:
                 return
 
@@ -417,7 +419,9 @@ class USGATournamentScraper(BaseScraper):
         # - Match play bracket
 
         with self.db.get_session() as session:
-            tournament = session.query(Tournament).get(tournament_id)
+            tournament = session.query(Tournament).filter_by(
+                tournament_id=tournament_id
+            ).first()
             if not tournament:
                 return
 

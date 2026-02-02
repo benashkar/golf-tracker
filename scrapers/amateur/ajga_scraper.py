@@ -378,7 +378,9 @@ class AJGATournamentScraper(BaseScraper):
         self.logger.info(f'Found {len(results)} player results for {tournament_name}')
 
         with self.db.get_session() as session:
-            tournament = session.query(Tournament).get(tournament_id)
+            tournament = session.query(Tournament).filter_by(
+                tournament_id=tournament_id
+            ).first()
             if not tournament:
                 return
 

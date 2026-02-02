@@ -565,7 +565,14 @@ class PGATourTournamentScraper(BaseScraper):
 
         with self.db.get_session() as session:
             # Fetch tournament in this session using the database ID
-            tournament = session.query(Tournament).get(tournament_id)
+            # Use filter_by instead of deprecated .get() to ensure fresh query
+            tournament = session.query(Tournament).filter_by(
+                tournament_id=tournament_id
+            ).first()
+
+            if not tournament:
+                self.logger.warning(f"Tournament {tournament_id} not found in database")
+                return
 
             # Update tournament status based on API response
             if tournament_status == 'IN_PROGRESS':
@@ -582,7 +589,7 @@ class PGATourTournamentScraper(BaseScraper):
                 except Exception as e:
                     self.logger.error(f"Error saving result: {e}")
 
-            self.logger.info(f"Saved {results_saved} results for {tournament.tournament_name}")
+            self.logger.info(f"Saved {results_saved} results for {tournament_name}")
 
     def _save_player_result(
         self,
