@@ -224,10 +224,15 @@ class BasePGAEcosystemScraper(BaseScraper):
 
     def _parse_tournament(self, t: Dict, status: str) -> Dict[str, Any]:
         """Parse tournament data from GraphQL response."""
+        from datetime import timedelta
+
         start_date = None
+        end_date = None
         if t.get('startDate'):
             try:
                 start_date = datetime.fromtimestamp(t['startDate'] / 1000).date()
+                # Golf tournaments are typically 4 days (Thu-Sun)
+                end_date = start_date + timedelta(days=3)
             except:
                 pass
 
@@ -242,6 +247,7 @@ class BasePGAEcosystemScraper(BaseScraper):
             'tournament_id': t.get('id', ''),
             'name': t.get('tournamentName', ''),
             'start_date': start_date,
+            'end_date': end_date,
             'city': t.get('city', ''),
             'state': t.get('state', ''),
             'country': t.get('country', 'USA'),

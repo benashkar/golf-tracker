@@ -239,6 +239,8 @@ class PGATourTournamentScraper(BaseScraper):
         Returns:
             List of normalized tournament dictionaries
         """
+        from datetime import timedelta
+
         tournaments = []
         today = date.today()
 
@@ -246,11 +248,13 @@ class PGATourTournamentScraper(BaseScraper):
         for month_data in schedule_data.get('completed', []):
             for tournament in month_data.get('tournaments', []):
                 start_date = self._parse_timestamp(tournament.get('startDate'))
+                # Golf tournaments are typically 4 days (Thu-Sun)
+                end_date = start_date + timedelta(days=3) if start_date else None
                 tournaments.append({
                     'tournament_id': tournament.get('id', ''),
                     'name': tournament.get('tournamentName', ''),
                     'start_date': start_date,
-                    'end_date': None,  # GraphQL doesn't provide end date
+                    'end_date': end_date,
                     'city': tournament.get('city', ''),
                     'state': tournament.get('state', ''),
                     'country': tournament.get('country', 'USA'),
@@ -266,12 +270,11 @@ class PGATourTournamentScraper(BaseScraper):
 
                 # Determine if tournament is in progress
                 # Tournaments typically run 4 days (Thu-Sun)
+                end_date = start_date + timedelta(days=3) if start_date else None
                 if start_date:
-                    from datetime import timedelta
-                    end_date_estimate = start_date + timedelta(days=3)
-                    if start_date <= today <= end_date_estimate:
+                    if start_date <= today <= end_date:
                         status = 'in_progress'
-                    elif today > end_date_estimate:
+                    elif today > end_date:
                         status = 'completed'
                     else:
                         status = 'scheduled'
@@ -282,7 +285,7 @@ class PGATourTournamentScraper(BaseScraper):
                     'tournament_id': tournament.get('id', ''),
                     'name': tournament.get('tournamentName', ''),
                     'start_date': start_date,
-                    'end_date': None,
+                    'end_date': end_date,
                     'city': tournament.get('city', ''),
                     'state': tournament.get('state', ''),
                     'country': tournament.get('country', 'USA'),
