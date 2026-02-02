@@ -3,9 +3,10 @@ Multi-Source Bio Enricher
 =========================
 
 Enriches player biographical data from multiple sources:
-1. Wikipedia (primary)
-2. ESPN
-3. Grokepedia
+1. DuckDuckGo Search (searches "player name high school" like a human would)
+2. Wikipedia (primary structured source)
+3. ESPN
+4. Grokepedia
 
 Saves the source URL where information was found for attribution.
 
@@ -13,11 +14,16 @@ For Junior Developers:
 ---------------------
 When we can't find hometown/high school info from one source,
 we try others. This increases our hit rate for local news data.
+
+The DuckDuckGo search is particularly effective because it mimics
+what a human would do - search for "Scottie Scheffler high school"
+and find the info in search result snippets.
 """
 
 from typing import Dict, Any, Optional
 from datetime import datetime
 import re
+import time
 import urllib.parse
 
 from loguru import logger
@@ -32,9 +38,10 @@ class MultiSourceBioEnricher(BaseScraper):
     Enriches player bio data from multiple sources.
 
     Tries sources in order:
-    1. Wikipedia - most comprehensive for pro golfers
-    2. ESPN - good for current players with profiles
-    3. Grokepedia - alternative golf-specific source
+    1. DuckDuckGo - searches like a human, high success rate
+    2. Wikipedia - most comprehensive for pro golfers
+    3. ESPN - good for current players with profiles
+    4. Grokepedia - alternative golf-specific source
     """
 
     scrape_type = 'player_bio'
@@ -43,8 +50,18 @@ class MultiSourceBioEnricher(BaseScraper):
         super().__init__('BIO', 'https://en.wikipedia.org')
         self.logger = logger.bind(scraper='MultiSourceBioEnricher')
 
+        # DuckDuckGo search settings
+        self.ddg_search_url = 'https://html.duckduckgo.com/html/'
+        self.ddg_request_delay = 2  # seconds between DDG requests
+        self.last_ddg_request = 0
+
         # Source configurations
         self.sources = [
+            {
+                'name': 'duckduckgo',
+                'search_url': 'https://html.duckduckgo.com/html/',
+                'enabled': True,
+            },
             {
                 'name': 'wikipedia',
                 'search_url': 'https://en.wikipedia.org/w/api.php',
@@ -81,7 +98,7 @@ class MultiSourceBioEnricher(BaseScraper):
             'enriched': 0,
             'not_found': 0,
             'errors': [],
-            'sources_used': {'wikipedia': 0, 'espn': 0, 'grokepedia': 0}
+            'sources_used': {'duckduckgo': 0, 'wikipedia': 0, 'espn': 0, 'grokepedia': 0}
         }
 
         with self.db.get_session() as session:
@@ -126,7 +143,13 @@ class MultiSourceBioEnricher(BaseScraper):
         full_name = f"{player.first_name} {player.last_name}"
         self.logger.debug(f"Enriching: {full_name}")
 
-        # Try Wikipedia first
+        # Try DuckDuckGo search first (most effective - searches like a human)
+        bio_data = self._try_duckduckgo(full_name)
+        if bio_data and (bio_data.get('high_school_name') or bio_data.get('hometown_city')):
+            self._update_player_bio(player, bio_data, 'duckduckgo')
+            return ('duckduckgo', True)
+
+        # Try Wikipedia
         bio_data = self._try_wikipedia(full_name)
         if bio_data and (bio_data.get('high_school_name') or bio_data.get('hometown_city')):
             self._update_player_bio(player, bio_data, 'wikipedia')
@@ -146,6 +169,154 @@ class MultiSourceBioEnricher(BaseScraper):
 
         self.logger.debug(f"No bio data found for {full_name}")
         return (None, False)
+
+    def _ddg_rate_limit(self):
+        """Ensure we don't hit DuckDuckGo too fast."""
+        elapsed = time.time() - self.last_ddg_request
+        if elapsed < self.ddg_request_delay:
+            time.sleep(self.ddg_request_delay - elapsed)
+        self.last_ddg_request = time.time()
+
+    def _try_duckduckgo(self, player_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Search DuckDuckGo for player bio info.
+
+        This mimics what a human would do - search for
+        "Scottie Scheffler high school" and find the info.
+        """
+        try:
+            bio_data = {}
+
+            # Search for high school info
+            self._ddg_rate_limit()
+            hs_snippets = self._search_ddg(f"{player_name} high school golf")
+            if hs_snippets:
+                hs_data = self._extract_high_school_from_snippets(hs_snippets)
+                bio_data.update(hs_data)
+
+            # Search for hometown if not found
+            if 'hometown_city' not in bio_data:
+                self._ddg_rate_limit()
+                hometown_snippets = self._search_ddg(f"{player_name} golfer hometown")
+                if hometown_snippets:
+                    hometown_data = self._extract_hometown_from_snippets(hometown_snippets)
+                    bio_data.update(hometown_data)
+
+            # Search for college if not found
+            if 'college_name' not in bio_data:
+                self._ddg_rate_limit()
+                college_snippets = self._search_ddg(f"{player_name} college golf")
+                if college_snippets:
+                    college_data = self._extract_college_from_snippets(college_snippets)
+                    bio_data.update(college_data)
+
+            if bio_data:
+                bio_data['source_url'] = f"https://duckduckgo.com/?q={urllib.parse.quote(player_name + ' golfer')}"
+
+            return bio_data if bio_data else None
+
+        except Exception as e:
+            self.logger.debug(f"DuckDuckGo search failed for {player_name}: {e}")
+            return None
+
+    def _search_ddg(self, query: str) -> Optional[list]:
+        """Search DuckDuckGo and return result snippets."""
+        try:
+            params = {'q': query, 'kl': 'us-en'}
+            url = f"{self.ddg_search_url}?{urllib.parse.urlencode(params)}"
+
+            soup = self.get_page(url)
+            if not soup:
+                return None
+
+            snippets = []
+
+            # Extract from result divs
+            for result in soup.find_all('div', class_='result')[:10]:
+                snippet = result.find('a', class_='result__snippet')
+                if snippet:
+                    snippets.append(snippet.get_text(strip=True))
+                title = result.find('a', class_='result__a')
+                if title:
+                    snippets.append(title.get_text(strip=True))
+
+            # Fallback selectors
+            if not snippets:
+                for elem in soup.find_all(['div', 'span'], class_=re.compile(r'snippet|abstract', re.I)):
+                    text = elem.get_text(strip=True)
+                    if len(text) > 20:
+                        snippets.append(text)
+
+            return snippets if snippets else None
+
+        except Exception as e:
+            self.logger.debug(f"DDG search error: {e}")
+            return None
+
+    def _extract_high_school_from_snippets(self, snippets: list) -> Dict[str, Any]:
+        """Extract high school info from search snippets."""
+        data = {}
+        patterns = [
+            r'attended\s+([A-Z][A-Za-z\'\s]+)\s+High\s+School',
+            r'graduated\s+(?:from\s+)?([A-Z][A-Za-z\'\s]+)\s+High\s+School',
+            r'([A-Z][A-Za-z\'\s]+)\s+High\s+School\s+in\s+([A-Z][A-Za-z\s]+)',
+            r'([A-Z][A-Za-z\'\s]+)\s+High\s+School',
+        ]
+
+        for snippet in snippets:
+            for pattern in patterns:
+                match = re.search(pattern, snippet, re.IGNORECASE)
+                if match:
+                    school = match.group(1).strip()
+                    school = re.sub(r'\s+', ' ', school).rstrip('.,;:')
+                    if school and len(school) > 2:
+                        data['high_school_name'] = f"{school} High School"
+                        if match.lastindex >= 2:
+                            data['high_school_city'] = match.group(2).strip()
+                        return data
+        return data
+
+    def _extract_hometown_from_snippets(self, snippets: list) -> Dict[str, Any]:
+        """Extract hometown info from search snippets."""
+        data = {}
+        patterns = [
+            r'(?:from|hails from|native of)\s+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)',
+            r'born\s+(?:and raised\s+)?in\s+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)',
+            r'raised\s+in\s+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)',
+            r'hometown[:\s]+([A-Z][A-Za-z\s]+),\s+([A-Z][A-Za-z\s]+)',
+        ]
+
+        for snippet in snippets:
+            for pattern in patterns:
+                match = re.search(pattern, snippet, re.IGNORECASE)
+                if match:
+                    city = match.group(1).strip()
+                    if city and len(city) > 2:
+                        data['hometown_city'] = city
+                        if match.lastindex >= 2:
+                            data['hometown_state'] = match.group(2).strip()
+                        return data
+        return data
+
+    def _extract_college_from_snippets(self, snippets: list) -> Dict[str, Any]:
+        """Extract college info from search snippets."""
+        data = {}
+        patterns = [
+            r'played\s+(?:golf\s+)?(?:at|for)\s+([A-Z][A-Za-z\s]+(?:University|College|State))',
+            r'attended\s+(University\s+of\s+[A-Za-z\s]+|[A-Z][A-Za-z\s]+\s+University)',
+            r'(University\s+of\s+[A-Za-z\s]+)',
+        ]
+
+        for snippet in snippets:
+            for pattern in patterns:
+                match = re.search(pattern, snippet, re.IGNORECASE)
+                if match:
+                    college = match.group(1).strip()
+                    college = re.sub(r'\s*\([^)]+\)', '', college)
+                    if college and len(college) > 3:
+                        data['college_name'] = college
+                        return data
+        return data
 
     def _try_wikipedia(self, player_name: str) -> Optional[Dict[str, Any]]:
         """Try to get bio data from Wikipedia."""
