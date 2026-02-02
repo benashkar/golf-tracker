@@ -118,7 +118,7 @@
                         <tr>
                             <th>Pos</th>
                             <th>Player</th>
-                            <th>High School</th>
+                            <th>Background</th>
                             <th>Score</th>
                             <th>R1</th>
                             <th>R2</th>
@@ -147,11 +147,16 @@
                                 </a>
                             </td>
                             <td>
-                                {% if entry.player_bio and entry.player_bio.high_school_name %}
+                                {% if entry.player_bio and (entry.player_bio.high_school_name or entry.player_bio.hometown_city) %}
                                 <small>
+                                    {% if entry.player_bio.high_school_name %}
                                     {{ entry.player_bio.high_school_name }}
                                     {% if entry.player_bio.high_school_state %}
                                     <br><span class="text-success">{{ entry.player_bio.high_school_state }}</span>
+                                    {% endif %}
+                                    {% endif %}
+                                    {% if entry.player_bio.hometown_city %}
+                                    <br><span class="text-muted"><i class="bi bi-geo-alt"></i> {{ entry.player_bio.hometown_city }}{% if entry.player_bio.hometown_state %}, {{ entry.player_bio.hometown_state }}{% endif %}</span>
                                     {% endif %}
                                 </small>
                                 {% else %}
