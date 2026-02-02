@@ -17,7 +17,7 @@ class KornFerryTournamentScraper(BasePGAEcosystemScraper):
 
     league_code = 'KORNFERRY'
     tour_code = 'H'
-    scrape_type = 'tournaments'
+    scrape_type = 'tournament_list'
 
     def scrape(self, year: Optional[int] = None, **kwargs) -> Dict[str, Any]:
         """

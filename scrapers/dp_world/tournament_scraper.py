@@ -18,7 +18,7 @@ class DPWorldTournamentScraper(BaseScraper):
     """Scrapes DP World Tour tournaments using ESPN API."""
 
     league_code = 'DPWORLD'
-    scrape_type = 'tournaments'
+    scrape_type = 'tournament_list'
 
     def __init__(self):
         super().__init__('DPWORLD', 'https://www.europeantour.com')

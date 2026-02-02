@@ -47,7 +47,7 @@ class CollegeGolfTournamentScraper(BaseScraper):
     """
 
     league_code = 'NCAA_D1_MENS'  # Default to D1 Men's
-    scrape_type = 'tournaments'
+    scrape_type = 'tournament_list'
 
     # Division codes for Golfstat
     DIVISIONS = {

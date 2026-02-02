@@ -23,7 +23,7 @@ class LIVTournamentScraper(BaseScraper):
     """Scrapes LIV Golf League tournaments."""
 
     league_code = 'LIV'
-    scrape_type = 'tournaments'
+    scrape_type = 'tournament_list'
 
     def __init__(self):
         super().__init__('LIV', 'https://www.livgolf.com')

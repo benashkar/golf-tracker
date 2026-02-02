@@ -33,7 +33,7 @@ class USGATournamentScraper(BaseScraper):
     """Scrapes USGA amateur championship schedules and results."""
 
     league_code = 'USGA'
-    scrape_type = 'tournaments'
+    scrape_type = 'tournament_list'
 
     def __init__(self):
         super().__init__('USGA', 'https://championships.usga.org')

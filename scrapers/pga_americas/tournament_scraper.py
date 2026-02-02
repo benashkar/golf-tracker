@@ -22,7 +22,7 @@ class PGAAmericasTournamentScraper(BasePGAEcosystemScraper):
 
     league_code = 'PGAAMERICAS'
     tour_code = 'Y'  # Y = PGA Tour Americas in PGA API
-    scrape_type = 'tournaments'
+    scrape_type = 'tournament_list'
 
     def scrape(self, year: Optional[int] = None, **kwargs) -> Dict[str, Any]:
         """

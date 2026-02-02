@@ -48,7 +48,7 @@ class AJGATournamentScraper(BaseScraper):
     """
 
     league_code = 'AJGA'
-    scrape_type = 'tournaments'
+    scrape_type = 'tournament_list'
 
     def __init__(self):
         """Initialize the AJGA scraper."""

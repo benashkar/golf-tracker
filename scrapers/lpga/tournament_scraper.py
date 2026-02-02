@@ -19,7 +19,7 @@ class LPGATournamentScraper(BaseScraper):
     """Scrapes LPGA Tour tournaments using ESPN API."""
 
     league_code = 'LPGA'
-    scrape_type = 'tournaments'
+    scrape_type = 'tournament_list'
 
     def __init__(self):
         config = get_league_config('LPGA')
