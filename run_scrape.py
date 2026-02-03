@@ -36,6 +36,7 @@ def run_migrations():
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS liv_id VARCHAR(50)",
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS pga_americas_id VARCHAR(50)",
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS usga_id VARCHAR(50)",
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS epson_id VARCHAR(50)",
 
         # Player ID indexes
         "CREATE INDEX IF NOT EXISTS idx_korn_ferry_id ON players(korn_ferry_id)",
@@ -45,6 +46,7 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_liv_id ON players(liv_id)",
         "CREATE INDEX IF NOT EXISTS idx_pga_americas_id ON players(pga_americas_id)",
         "CREATE INDEX IF NOT EXISTS idx_usga_id ON players(usga_id)",
+        "CREATE INDEX IF NOT EXISTS idx_epson_id ON players(epson_id)",
 
         # Tournament ID columns
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS korn_ferry_tournament_id VARCHAR(50)",
@@ -54,6 +56,7 @@ def run_migrations():
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS liv_tournament_id VARCHAR(50)",
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS pga_americas_tournament_id VARCHAR(50)",
         "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS usga_tournament_id VARCHAR(50)",
+        "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS epson_tournament_id VARCHAR(50)",
 
         # Tournament ID indexes
         "CREATE INDEX IF NOT EXISTS idx_korn_ferry_tournament_id ON tournaments(korn_ferry_tournament_id)",
@@ -63,6 +66,7 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_liv_tournament_id ON tournaments(liv_tournament_id)",
         "CREATE INDEX IF NOT EXISTS idx_pga_americas_tournament_id ON tournaments(pga_americas_tournament_id)",
         "CREATE INDEX IF NOT EXISTS idx_usga_tournament_id ON tournaments(usga_tournament_id)",
+        "CREATE INDEX IF NOT EXISTS idx_epson_tournament_id ON tournaments(epson_tournament_id)",
 
         # Bio source tracking columns
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS bio_source_url VARCHAR(500)",

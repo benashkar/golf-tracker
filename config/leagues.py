@@ -220,6 +220,34 @@ LEAGUES: Dict[str, Dict[str, Any]] = {
     },
 
     # ==========================================================================
+    # EPSON TOUR (LPGA Developmental)
+    # ==========================================================================
+    # The developmental tour for the LPGA Tour - excellent for American HS data
+    'EPSON': {
+        'league_code': 'EPSON',
+        'league_name': 'Epson Tour',
+        'base_url': 'https://www.epsontour.com',
+        'is_active': True,
+
+        'urls': {
+            'players': 'https://www.epsontour.com/athletes/directory',
+            'schedule': 'https://www.epsontour.com/tournaments',
+            'player_profile': 'https://www.epsontour.com/athletes/{player_slug}',
+        },
+
+        'scraping': {
+            'requires_selenium': True,  # Site uses heavy JavaScript
+            'delay_seconds': 3,
+        },
+
+        'special_format': {
+            'is_developmental': True,
+            'feeds_to': 'LPGA',
+            'high_us_player_percentage': True,  # Most players are American
+        },
+    },
+
+    # ==========================================================================
     # USGA AMATEUR EVENTS
     # ==========================================================================
     # Amateur golf events including U.S. Amateur, U.S. Women's Amateur, etc.

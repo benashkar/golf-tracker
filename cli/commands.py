@@ -38,7 +38,7 @@ def cli():
 
 
 @cli.command()
-@click.option('--league', required=True, help='League code (PGA, DPWORLD, KORNFERRY, LPGA, LIV, CHAMPIONS, PGAAMERICAS, USGA)')
+@click.option('--league', required=True, help='League code (PGA, DPWORLD, KORNFERRY, LPGA, LIV, CHAMPIONS, PGAAMERICAS, USGA, EPSON)')
 @click.option('--type', 'scrape_type', required=True,
               type=click.Choice(['roster', 'tournaments', 'results']),
               help='Type of data to scrape')
@@ -80,6 +80,9 @@ def scrape(league: str, scrape_type: str, year: int):
             elif league == 'USGA':
                 from scrapers.usga.roster_scraper import USGARosterScraper
                 scraper = USGARosterScraper()
+            elif league == 'EPSON':
+                from scrapers.epson.roster_scraper import EpsonRosterScraper
+                scraper = EpsonRosterScraper()
             else:
                 raise click.ClickException(f"Roster scraper not yet implemented for {league}")
 
@@ -110,6 +113,9 @@ def scrape(league: str, scrape_type: str, year: int):
             elif league == 'USGA':
                 from scrapers.usga.tournament_scraper import USGATournamentScraper
                 scraper = USGATournamentScraper()
+            elif league == 'EPSON':
+                from scrapers.epson.tournament_scraper import EpsonTournamentScraper
+                scraper = EpsonTournamentScraper()
             else:
                 raise click.ClickException(f"Tournament scraper not yet implemented for {league}")
 
@@ -270,6 +276,7 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
         ('KORNFERRY', 'Korn Ferry Tour'),
         ('CHAMPIONS', 'PGA Tour Champions'),
         ('LPGA', 'LPGA Tour'),
+        ('EPSON', 'Epson Tour'),  # LPGA developmental - high US player %
         ('DPWORLD', 'DP World Tour'),
         ('LIV', 'LIV Golf'),
         ('PGAAMERICAS', 'PGA Tour Americas'),
@@ -328,6 +335,9 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
             elif league_code == 'USGA':
                 from scrapers.usga.roster_scraper import USGARosterScraper
                 roster_scraper = USGARosterScraper()
+            elif league_code == 'EPSON':
+                from scrapers.epson.roster_scraper import EpsonRosterScraper
+                roster_scraper = EpsonRosterScraper()
 
             roster_result = roster_scraper.run() if roster_scraper else {'records_created': 0, 'records_updated': 0}
             total_results['players_created'] += roster_result.get('records_created', 0)
@@ -361,6 +371,9 @@ def scrape_all(year: int, include_college: bool, include_amateur: bool):
             elif league_code == 'USGA':
                 from scrapers.usga.tournament_scraper import USGATournamentScraper
                 tournament_scraper = USGATournamentScraper()
+            elif league_code == 'EPSON':
+                from scrapers.epson.tournament_scraper import EpsonTournamentScraper
+                tournament_scraper = EpsonTournamentScraper()
 
             tournament_result = tournament_scraper.run(year=year) if tournament_scraper else {'records_created': 0, 'records_updated': 0}
             total_results['tournaments_created'] += tournament_result.get('records_created', 0)
